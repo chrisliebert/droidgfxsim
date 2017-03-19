@@ -1,0 +1,6 @@
+<WavefrontFile filename="test.obj">
+        <InstanceNode matrix="1 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 1">Box.000</InstanceNode>
+</WavefrontFile>
+<PhysicsNode mass="1.0f">
+        <CollisionShape width="1" height="1" length="1" offset_x="0" offset_y="0" offset_z="0">Box</CollisionShape>
+</PhysicsNode>
