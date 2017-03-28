@@ -24,8 +24,8 @@ public:
 	std::map<std::string, Image*> images;
 	char* config_file_contents;
 
-#ifndef DESKTOP_APP
-	AAssetManager* asset_manager;
+	AssetManager* asset_manager;
+#if defined(__ANDROID__)
 	Application(AAssetManager* asset_manager);
 #else
 	Application();
@@ -36,7 +36,6 @@ public:
 			scenegraph::Node* scene_node);
 	Node* loadXML(const char* xml_filename);
 	Node* loadResources();
-	Image* loadImage(const char* filename);
 
 	void init();
 	void step();

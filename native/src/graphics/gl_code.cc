@@ -2,36 +2,15 @@
 
 #include "graphics/gl_code.h"
 
-#define STB_IMAGE_IMPLEMENTATION
-#include "graphics/stb_image.h"
-
-static void printGLString(const char *name, GLenum s) {
-	const char *v = (const char *) glGetString(s);
-	LOGI("GL %s = %s\n", name, v);
-}
-
 static void checkGlError(const char* op) {
 	for (GLint error = glGetError(); error; error = glGetError()) {
-		LOGI("after %s() glError (0x%x)\n", op, error);
+		LOGE("after %s() glError (0x%x)\n", op, error);
 	}
 }
-
-#ifdef DESKTOP_APP
-Image* loadImage(const char* filename) {
-	Image* image = new Image();
-	assert(image);
-	image->data = stbi_load(filename, &image->w, &image->h, &image->comp,
-			STBI_default);
-	if (image->data == 0) {
-		LOGE("Unable to load image: %s", filename);
-		return 0;
-	}
-	return image;
-}
-#endif
 
 GLuint loadTexture(Image* texture) {
 	assert(texture);
+	assert(texture->data);
 	GLuint texture_id;
 	glGenTextures(1, &texture_id);
 	glBindTexture(GL_TEXTURE_2D, texture_id);
@@ -45,7 +24,7 @@ GLuint loadTexture(Image* texture) {
 				GL_RGBA, GL_UNSIGNED_BYTE, texture->data);
 	}
 	glBindTexture(GL_TEXTURE_2D, 0);
-	stbi_image_free(texture->data);
+	delete[] texture->data;
 	texture->data = 0;
 	return texture_id;
 }
@@ -113,8 +92,8 @@ GLuint createProgram(const char* pVertexSource, const char* pFragmentSource) {
 			program = 0;
 		} else {
 			// Delete the shader objects once the program is linked
-			//glDeleteShader(vertexShader);
-			//glDeleteShader(pixelShader);
+			glDeleteShader(vertexShader);
+			glDeleteShader(pixelShader);
 		}
 	} else {
 		LOGE("Unable to create program\n");

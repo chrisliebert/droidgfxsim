@@ -18,10 +18,9 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-#ifndef DESKTOP_APP
-#include <android/asset_manager.h>
-#include <android/asset_manager.h>
-#include <android/asset_manager_jni.h>
+#if defined(__ANDROID__)
+	#include <android/asset_manager.h>
+	#include <android/asset_manager_jni.h>
 #endif
 
 #include "graphics/scene_graph.h"
@@ -38,6 +37,8 @@ using std::cerr;
 using std::endl;
 using std::string;
 
+#include "common/asset_manager.hpp"
+
 using namespace scenegraph;
 
 class WavefrontSceneGraphFactory {
@@ -46,11 +47,8 @@ public:
 	~WavefrontSceneGraphFactory();
 	void addTexture(const char*);
 
-#ifndef DESKTOP_APP
-	bool addWavefront(const char*, glm::mat4, AAssetManager*);
-#else
-	bool addWavefront(const char*, glm::mat4);
-#endif
+	bool addWavefront(const char*, glm::mat4, AssetManager*);
+
 
 	Node* build();
 	std::set<std::string> textures;

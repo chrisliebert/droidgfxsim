@@ -1,70 +1,54 @@
 #include <sstream>
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/quaternion.hpp>
 
 #include "application/application.h"
 #include "common/log.h"
-#include "stb_image.h"
 
 #define XML_FILENAME "data.xml"
 
-Image* Application::loadImage(const char* filename) {
-	Image* image = new Image();
-	assert(image);
-#ifndef DESKTOP_APP
-	AAsset* file = AAssetManager_open(asset_manager, filename, AASSET_MODE_BUFFER);
-	size_t file_length = AAsset_getLength(file);
-	assert(file_length > 0);
-	unsigned char* image_file_bytes = new unsigned char[file_length];
-	assert(image_file_bytes);
-	AAsset_read(file, image_file_bytes, file_length);
-	AAsset_close(file);
-	image->data = stbi_load_from_memory(image_file_bytes, file_length * sizeof(unsigned char), &image->w, &image->h, &image->comp, STBI_default);
-#else
-	image->data = stbi_load(filename, &image->w, &image->h, &image->comp,
-			STBI_default);
-#endif
-	if (image->data == 0) {
-		LOGE("Unable to load image: %s", filename);
-		return 0;
-	}
-	return image;
+Image *loadImageAsset(const char *filename, AssetManager *manager) {
+    Image *image = new Image();
+    assert(image);
+    size_t file_length = 0;
+    unsigned char *image_file_bytes = manager->loadBinaryFile(filename, file_length);
+    assert(file_length > 0);
+    image->data = stbi_load_from_memory(image_file_bytes, file_length * sizeof(unsigned char),
+                                        &image->w, &image->h, &image->comp, STBI_default);
+    if (image->data == 0) {
+        LOGE("Unable to load image: %s", filename);
+        return 0;
+    }
+    return image;
 }
 
 Node* Application::loadResources() {
 	return loadXML(XML_FILENAME);
 }
 
-#ifndef DESKTOP_APP
-Application::Application(AAssetManager* asset_manager) {
-	config_file_contents = 0;
-	this->asset_manager = asset_manager;
-	assert(this->asset_manager);
-	simulation = new Simulation();
-	assert(simulation);
-	scenegraph_root = loadResources();
-	assert(scenegraph_root);
-	init();
-	if(config_file_contents) {
-		delete [] config_file_contents;
-	}
-}
-
-#else
-
+#if defined(__ANDROID__)
+Application::Application(AAssetManager* android_asset_manager) {
+    this->asset_manager = new AssetManager(android_asset_manager);
+#elif defined(DESKTOP_APP)
 Application::Application() {
-	config_file_contents = 0;
-	simulation = new Simulation();
+    this->asset_manager = new AssetManager();
+#endif
+	assert(this->asset_manager);
+    config_file_contents = 0;
+    simulation = new Simulation();
 	assert(simulation);
 	scenegraph_root = loadResources();
 	assert(scenegraph_root);
 	init();
-	if (config_file_contents) {
-		delete[] config_file_contents;
-	}
+    if(config_file_contents) {
+        delete [] config_file_contents;
+        config_file_contents = 0;
+    }
 }
-#endif
 
 Application::~Application() {
 	if (simulation)
@@ -85,6 +69,9 @@ Application::~Application() {
 		}
 	}
 	images.clear();
+	if(asset_manager) {
+		delete asset_manager;
+	}
 }
 
 Node* Application::parseXML(rapidxml::xml_document<>& doc) {
@@ -109,18 +96,11 @@ void Application::parseXMLNode(rapidxml::xml_node<>* my_xml_node,
 				attr; attr = attr->next_attribute()) {
 			if (0 == std::string("filename").compare(attr->name())) {
 				WavefrontSceneGraphFactory factory;
-#ifndef DESKTOP_APP
 				bool status = factory.addWavefront(attr->value(), glm::mat4(1.f), asset_manager);
-#else
-				bool status = factory.addWavefront(attr->value(),
-						glm::mat4(1.f));
-#endif
 				assert(status);
-				for (std::set<std::string>::iterator it =
-						factory.textures.begin(); it != factory.textures.end();
-						++it) {
+				for (std::set<std::string>::iterator it = factory.textures.begin(); it != factory.textures.end(); ++it) {
 					std::string s = *it;
-					Image* t = loadImage(s.c_str());
+					Image* t = loadImageAsset(s.c_str(), asset_manager);
 					images[s] = t;
 				}
 				Node* wf = factory.build();
@@ -139,28 +119,8 @@ void Application::parseXMLNode(rapidxml::xml_node<>* my_xml_node,
 
 Node* Application::loadXML(const char* xml_filename) {
 	rapidxml::xml_document<> doc;
-
-#ifndef DESKTOP_APP
-	AAsset* file = AAssetManager_open(asset_manager, xml_filename, AASSET_MODE_BUFFER);
-	size_t file_length = AAsset_getLength(file);
-	config_file_contents = new char[file_length + 1];
-	assert(config_file_contents);
-	AAsset_read(file, config_file_contents, file_length);
-	AAsset_close(file);
+    config_file_contents = asset_manager->loadTextChars(xml_filename);
 	doc.parse<0>(config_file_contents);
-#else
-	{
-		std::ifstream filestream(xml_filename);
-		std::vector<char> buffer((std::istreambuf_iterator<char>(filestream)),
-				std::istreambuf_iterator<char>());
-		filestream.close();
-		buffer.push_back('\0');
-		config_file_contents = new char[buffer.size()];
-		assert(config_file_contents);
-		memcpy(config_file_contents, buffer.data(), buffer.size());
-		doc.parse<0>(config_file_contents);
-	}
-#endif
 	return parseXML(doc);
 }
 

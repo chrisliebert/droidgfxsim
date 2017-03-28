@@ -1,12 +1,12 @@
 #ifndef _LOG_H_
 #define _LOG_H_
 
-#ifndef DESKTOP_APP
+#if defined(__ANDROID__)
 	#include <android/log.h>
   	#define	LOG_TAG    	"libglappjni"
 	#define	LOGI(...)	__android_log_print(ANDROID_LOG_INFO,LOG_TAG,__VA_ARGS__)
 	#define	LOGE(...)	__android_log_print(ANDROID_LOG_ERROR,LOG_TAG,__VA_ARGS__) 
-#else
+#elif defined(DESKTOP_APP)
 	#include <cstdio>
 	#include "glad/glad.h"
 	#define MAX_LOG_MESSAGE_LENGTH 4096

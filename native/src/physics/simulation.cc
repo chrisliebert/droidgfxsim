@@ -67,8 +67,7 @@ Simulation::~Simulation() {
 	physics_nodes.clear();
 }
 
-void Simulation::parseXMLNode(rapidxml::xml_node<>* my_xml_node,
-		scenegraph::Node* scenegraph) {
+void Simulation::parseXMLNode(rapidxml::xml_node<>* my_xml_node, scenegraph::Node* scenegraph_root) {
 	if (!my_xml_node)
 		return;
 	char* c_name = my_xml_node->name();
@@ -125,8 +124,7 @@ void Simulation::parseXMLNode(rapidxml::xml_node<>* my_xml_node,
 							offset_z = atof(col_attr->value());
 						}
 					}
-					TransformNode* trans_node = scenegraph->find_transform_node(
-							object_name);
+					TransformNode* trans_node = scenegraph::find_transform_node(object_name, scenegraph_root);
 					if (trans_node) {
 						addPhysicsBoxNode(trans_node, mass, width, height,
 								length, offset_x, offset_y, offset_z);
@@ -145,8 +143,8 @@ void Simulation::parseXMLNode(rapidxml::xml_node<>* my_xml_node,
 	}
 
 	// Recursively parse children and siblings
-	parseXMLNode(my_xml_node->first_node(), scenegraph);
-	parseXMLNode(my_xml_node->next_sibling(), scenegraph);
+	parseXMLNode(my_xml_node->first_node(), scenegraph_root);
+	parseXMLNode(my_xml_node->next_sibling(), scenegraph_root);
 }
 
 void Simulation::addPhysicsNode(TransformNode* trans_node,

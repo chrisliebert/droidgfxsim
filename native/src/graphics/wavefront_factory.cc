@@ -1,14 +1,10 @@
+#include "common/asset_manager.hpp"
+#include "common/log.h"
 #include "graphics/wavefront_factory.h"
 
 #include "rapidxml.hpp"
 #include "rapidxml_utils.hpp"
 #include "rapidxml_print.hpp"
-
-#ifndef DESKTOP_APP
-#include <android/asset_manager.h>
-#include <android/asset_manager.h>
-#include <android/asset_manager_jni.h>
-#endif
 
 WavefrontSceneGraphFactory::WavefrontSceneGraphFactory() {
 	start_position = 0;
@@ -20,17 +16,6 @@ WavefrontSceneGraphFactory::~WavefrontSceneGraphFactory() {
 	textures.clear();
 }
 
-std::vector<unsigned char> readFile(const char* filename) {
-	// open the file:
-	std::ifstream file(filename, std::ios::binary);
-	if (!file.is_open()) {
-		std::cerr << "Unable to open " << filename << std::endl;
-	}
-
-	// read the data:
-	return std::vector<unsigned char>((std::istreambuf_iterator<char>(file)),
-			std::istreambuf_iterator<char>());
-}
 
 // Used to check file extension
 bool hasEnding(std::string const &fullString, std::string const &ending) {
@@ -97,9 +82,6 @@ void replaceSubStr(string& source, const char* it, const char* with) {
 	replaceSubStr(source, its, withs);
 }
 
-#ifndef DESKTOP_APP
-
-// Android implementation
 class MaterialStringStreamReader : public tinyobj::MaterialReader {
 public:
 	MaterialStringStreamReader(const std::string& matSStream)
@@ -125,26 +107,6 @@ private:
 	std::stringstream m_matSStream;
 };
 
-std::string loadAssetAscii(const std::string& path, AAssetManager* mgr) {
-	//AAssetManager* mgr = AAssetManager_fromJava(env, assetManager);
-	// assert(mgr);
-	//TODO: assert
-	AAsset* file = AAssetManager_open(mgr, path.c_str(), AASSET_MODE_BUFFER);
-	// Get the file length
-	size_t fileLength = AAsset_getLength(file);
-
-	// Allocate memory to read your file
-	char* fileContent = new char[fileLength+1];
-
-	AAsset_read(file, fileContent, fileLength);
-	AAsset_close(file);
-	fileContent[fileLength] = '\0';
-
-	std::string str(fileContent);
-	delete [] fileContent;
-	return str;
-}
-
 std::vector<std::string> getMTLFilenames(const std::string& objContents) {
 	std::vector<std::string> filenames;
 	std::stringstream ss(objContents);
@@ -167,29 +129,20 @@ std::vector<std::string> getMTLFilenames(const std::string& objContents) {
 	return filenames;
 }
 
-#endif
-
-#ifndef DESKTOP_APP
-bool WavefrontSceneGraphFactory::addWavefront(const char* fileName, glm::mat4 matrix, AAssetManager* asset_manager) {
-#else
-bool WavefrontSceneGraphFactory::addWavefront(const char* fileName,
-		glm::mat4 matrix) {
-#endif
+bool WavefrontSceneGraphFactory::addWavefront(const char* file_name, glm::mat4 matrix, AssetManager* asset_manager) {
 	size_t initial_num_materials = this->materials.size();
 	tinyobj::attrib_t attrib;
 	std::vector<tinyobj::shape_t> shapes;
 	std::vector<tinyobj::material_t> materialList;
 	std::string err;
-
-#ifndef DESKTOP_APP
 	std::stringstream objStream;
 	std::stringstream matStream;
-	const std::string obj_contents = loadAssetAscii(std::string(fileName), asset_manager);
+	const std::string obj_contents = asset_manager->loadTextFile(file_name);
 	std::vector<std::string> mtl_filenames = getMTLFilenames(obj_contents);
 	objStream << obj_contents;
 	for(std::vector<std::string>::iterator it = mtl_filenames.begin(); it != mtl_filenames.end(); ++it) {
 		std::string mtl_filename = *it;
-		std::string mtl_contents = loadAssetAscii(mtl_filename, asset_manager);
+		std::string mtl_contents = asset_manager->loadTextFile(mtl_filename.c_str());
 		matStream << mtl_contents;
 	}
 	const std::string mtls_contents = matStream.str();
@@ -199,18 +152,7 @@ bool WavefrontSceneGraphFactory::addWavefront(const char* fileName,
 		return false;
 	}
 	std::stringstream fileNamePath;
-	fileNamePath << fileName;
-#else
-	// Desktop app loads .obj from filesystem
-	std::stringstream modelDirectory, fileNamePath;
-	//modelDirectory << cfg->getVar("model.directory");
-	modelDirectory << std::string(".");
-	modelDirectory << DIRECTORY_PATH_SEPARATOR;
-	fileNamePath << modelDirectory.str();
-	fileNamePath << fileName;
-	bool ret = tinyobj::LoadObj(&attrib, &shapes, &materialList, &err,
-			fileNamePath.str().c_str(), modelDirectory.str().c_str(), true);
-#endif
+	fileNamePath << file_name;
 	std::stringstream namess;
 	namess << name << "[" << fileNamePath.str() << "]";
 	this->name = namess.str();
@@ -348,8 +290,8 @@ bool WavefrontSceneGraphFactory::addWavefront(const char* fileName,
 				vert.normal[0] = n[k][0];
 				vert.normal[1] = n[k][1];
 				vert.normal[2] = n[k][2];
-				vert.textureCoordinate[0] = tc[k][0];
-				vert.textureCoordinate[1] = tc[k][1];
+				vert.texcoord[0] = tc[k][0];
+				vert.texcoord[1] = tc[k][1];
 
 				// local object center mean calculation (stage 1)
 				geom_node->center[0] += vert.position[0];
@@ -424,7 +366,7 @@ bool WavefrontSceneGraphFactory::addWavefront(const char* fileName,
 	}
 
 	if (geometry_nodes.size() == 0) {
-		LOGE("Error: No scene nodes defined in %s", fileName);
+		LOGE("Error: No scene nodes defined in %s", file_name);
 		return false;
 	}
 

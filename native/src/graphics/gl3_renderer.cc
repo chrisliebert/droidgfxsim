@@ -70,7 +70,7 @@ void GL3SceneGraphRenderer::walk_render(Node* node) {
 
 			glVertexAttribPointer(2, 2, GL_UNSIGNED_BYTE, GL_TRUE,
 					sizeof(Vertex),
-					(const GLvoid*) offsetof(Vertex, textureCoordinate));
+					(const GLvoid*) offsetof(Vertex, texcoord));
 			glEnableVertexAttribArray(2);
 			glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex),
 					BUFFER_OFFSET(6 * sizeof(float)));

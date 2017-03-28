@@ -24,26 +24,20 @@ namespace scenegraph {
 typedef struct Vertex {
 	float position[3];
 	float normal[3];
-	float textureCoordinate[2];
+	float texcoord[2];
 } Vertex;
 
 typedef enum NodeType {
 	Geometry, Group, Material, Switch, Transform,
 } NodeType;
 
-class TransformNode;
-
 class Node {
 public:
 	Node();
-	//~Node();
 	Node* find(std::string& name);
 	Node* find(const char* name);
 	Node* find(std::string& name, NodeType search_type);
 	Node* find(const char* name, NodeType search_type);
-
-	TransformNode* find_transform_node(std::string& search);
-	TransformNode* find_transform_node(const char* search);
 
 	std::string name;
 	size_t num_children;
@@ -76,13 +70,11 @@ public:
 	glm::mat4 matrix;
 };
 
-//TransformNode* Node::find(std::string& search)
-//TransformNode* Node::find(const char* search)
+Node* find(std::string& search, Node* root);
+Node* find(std::string& search, Node* root, NodeType type);
 
-//Node* find_node(std::string& search, Node* node);
-//Node* find_node_by_type(std::string& search, Node* node, NodeType type);
-
-//Node* find_node_by_type(std::string& search, Node* node, NodeType type);
+TransformNode* find_transform_node(std::string& search, Node* root);
+TransformNode* find_transform_node(const char* search, Node* root);
 
 template<typename node_t>
 void destroy(node_t* node) {
