@@ -43,11 +43,11 @@ void pre_gl_call(const char *name, void *funcptr, int len_args, ...) {
 // (this is necessary to ensure render function is called when debugging)
 // A high of a value will reduce input responsiveness
 #ifndef MAX_SEQUENTIAL_UPDATE_COUNT
-	#define MAX_SEQUENTIAL_UPDATE_COUNT 10
+#define MAX_SEQUENTIAL_UPDATE_COUNT 10
 #endif
 
 #ifndef RENDERER
-	#define RENDERER GL3SceneGraphRenderer
+#define RENDERER GL3SceneGraphRenderer
 #endif
 
 int width = 1200;
@@ -56,24 +56,24 @@ int height = 800;
 Application* application = 0;
 
 void clickFunc(GLFWwindow* window, int button, int action, int mods) {
-	(void)window;
-	(void)mods;
+	(void) window;
+	(void) mods;
 	if (button == GLFW_MOUSE_BUTTON_LEFT) {
 		if (action == GLFW_PRESS) {
 			std::cout << "Left Mouse Press" << std::endl;
-		}
-		else if (action == GLFW_RELEASE) {
+		} else if (action == GLFW_RELEASE) {
 			std::cout << "Left Mouse Release" << std::endl;
 		}
 	}
 }
 
-void keyboardFunc(GLFWwindow* window, int key, int scancode, int action, int mods) {
-	(void)window;
-	(void)scancode;
-	(void)mods;
+void keyboardFunc(GLFWwindow* window, int key, int scancode, int action,
+		int mods) {
+	(void) window;
+	(void) scancode;
+	(void) mods;
 	if (action == GLFW_PRESS || action == GLFW_REPEAT) {
-		if(application) {
+		if (application) {
 			if (key == GLFW_KEY_UP) {
 				application->camera->moveForward(1.0);
 				application->camera->update();
@@ -114,9 +114,12 @@ void keyboardFunc(GLFWwindow* window, int key, int scancode, int action, int mod
 				//application->physics_nodes[1].body->setWorldTransform(transform);
 				btVector3 up_force(0.0, 100.0, 0.0);
 				const btVector3 rel_pos(0.0, 1.0, 0.0);
-				application->simulation->physics_nodes[1].body->applyForce(up_force, rel_pos);
-				application->simulation->physics_nodes[2].body->applyForce(up_force, rel_pos);
-				application->simulation->physics_nodes[3].body->applyForce(up_force, rel_pos);
+				application->simulation->physics_nodes[1].body->applyForce(
+						up_force, rel_pos);
+				application->simulation->physics_nodes[2].body->applyForce(
+						up_force, rel_pos);
+				application->simulation->physics_nodes[3].body->applyForce(
+						up_force, rel_pos);
 				//btVector3 angular_velocity(1.0, 1.0, 1.0);
 				//application->physics_nodes[1].body->setAngularVelocity(angular_velocity);
 
@@ -131,9 +134,8 @@ void keyboardFunc(GLFWwindow* window, int key, int scancode, int action, int mod
 	}
 }
 
-
 void motionFunc(GLFWwindow* window, double mouse_x, double mouse_y) {
-	(void)window;
+	(void) window;
 }
 
 void reshapeFunc(GLFWwindow* window, int w, int h) {
@@ -142,7 +144,8 @@ void reshapeFunc(GLFWwindow* window, int w, int h) {
 	glfwGetFramebufferSize(window, &fb_w, &fb_h);
 	glViewport(0, 0, fb_w, fb_h);
 	//todo: create new renderer on resize or allow resize function in renderer
-	if(application) application->resize(fb_w, fb_h);
+	if (application)
+		application->resize(fb_w, fb_h);
 	width = w;
 	height = h;
 }
@@ -154,7 +157,7 @@ int main(int argc, char** argv) {
 		LOGE("Failed to initialize GLFW.");
 		return -1;
 	}
-	
+
 	window = glfwCreateWindow(width, height, "Obj viewer", NULL, NULL);
 	if (window == NULL) {
 		LOGE("Failed to open GLFW window. ");
@@ -174,7 +177,7 @@ int main(int argc, char** argv) {
 	glfwSetMouseButtonCallback(window, clickFunc);
 	glfwSetCursorPosCallback(window, motionFunc);
 
-	if(!gladLoadGL()) {
+	if (!gladLoadGL()) {
 		std::cerr << "Something went wrong initializing OpenGL!" << std::endl;
 	}
 
@@ -204,8 +207,9 @@ int main(int argc, char** argv) {
 		RENDERER* renderer = 0;
 		while (glfwWindowShouldClose(window) == GL_FALSE) {
 			glfwPollEvents();
-			if(!application) {
-				if(renderer) delete renderer;
+			if (!application) {
+				if (renderer)
+					delete renderer;
 				application = new Application();
 				assert(application);
 				renderer = new RENDERER(application->images);
@@ -217,13 +221,12 @@ int main(int argc, char** argv) {
 			currentTime = newTime;
 			accumulator += frameTime;
 			unsigned sequential_update_count = 0;
-			while (accumulator >= dt)
-			{
+			while (accumulator >= dt) {
 				application->step();
 				accumulator -= dt;
 				t += dt;
 				sequential_update_count++;
-				if(sequential_update_count > MAX_SEQUENTIAL_UPDATE_COUNT) {
+				if (sequential_update_count > MAX_SEQUENTIAL_UPDATE_COUNT) {
 					application->render(renderer);
 					glfwSwapBuffers(window);
 				}
@@ -236,7 +239,8 @@ int main(int argc, char** argv) {
 		delete renderer;
 	}
 
-	if(application)	delete application;
+	if (application)
+		delete application;
 
 	glfwDestroyWindow(window);
 

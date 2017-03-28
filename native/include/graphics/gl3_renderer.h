@@ -13,10 +13,10 @@ protected:
 	//std::map<GeometryNode*, GLuint> ibos;
 	std::map<std::string, GLuint> texture_ids;
 	GLuint matrix_uniform_location;
-  //GLuint mvp_uniform_location;
-  
-  void walk_init_buffers(Node* node);
-  void walk_render(Node* node);
+	//GLuint mvp_uniform_location;
+
+	void walk_init_buffers(Node* node);
+	void walk_render(Node* node);
 public:
 	GL3SceneGraphRenderer(std::map<std::string, Image*>& texture_names);
 	~GL3SceneGraphRenderer();

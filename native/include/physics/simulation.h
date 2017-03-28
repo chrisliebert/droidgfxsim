@@ -3,9 +3,9 @@
 
 #include <cassert>
 
+#include "rapidxml.hpp"
 #include "common/log.h"
 #include "btBulletDynamicsCommon.h"
-
 #include "graphics/scene_graph.h"
 
 using scenegraph::TransformNode;
@@ -19,14 +19,16 @@ typedef struct PhysicsNode {
 
 class Simulation {
 protected:
-	btDefaultCollisionConfiguration* collisionConfiguration;
+	btDefaultCollisionConfiguration* collision_configuration;
 	btCollisionDispatcher* dispatcher;
-	btBroadphaseInterface* overlappingPairCache;
+	btBroadphaseInterface* overlapping_pair_cache;
 	btSequentialImpulseConstraintSolver* solver;
 public:
-	btDiscreteDynamicsWorld* dynamicsWorld;
-	btAlignedObjectArray<btCollisionShape*> collisionShapes;
+	btDiscreteDynamicsWorld* dynamics_world;
+	btAlignedObjectArray<btCollisionShape*> collision_shapes;
 	std::map<int, PhysicsNode> physics_nodes;
+
+	void parseXMLNode(rapidxml::xml_node<>* my_xml_node, scenegraph::Node* scene_node);
 
     void addPhysicsNode(TransformNode* trans_node, btCollisionShape* collision_shape, float mass, float offset_x, float offset_y, float offset_z);
     void addPhysicsNode(TransformNode* trans_node, btCollisionShape* collision_shape, float mass);

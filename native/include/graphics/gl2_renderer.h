@@ -12,7 +12,7 @@ protected:
 	GLuint matrix_uniform_location;
 
 	void walk_init_buffers(Node* node);
-  void walk_render(Node* node);
+	void walk_render(Node* node);
 public:
 	GL2SceneGraphRenderer(std::map<std::string, Image*>& images);
 	~GL2SceneGraphRenderer();

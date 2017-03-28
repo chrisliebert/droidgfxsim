@@ -3,6 +3,10 @@
 
 #include <cassert>
 
+#include "rapidxml.hpp"
+#include "rapidxml_utils.hpp"
+#include "rapidxml_print.hpp"
+
 #include "graphics/camera.h"
 #include "graphics/gl_code.h"
 #include "graphics/scene_graph.h"
@@ -10,33 +14,39 @@
 
 #include "physics/simulation.h"
 
-typedef struct Application {
-    float grey;
-    Simulation* simulation;
-    scenegraph::Node* scenegraph_root;
-    Camera* camera;
-    std::map<std::string, Image*> images;
-
-
+class Application {
+private:
+	float grey;
+public:
+	scenegraph::Node* scenegraph_root;
+	Simulation* simulation;
+	Camera* camera;
+	std::map<std::string, Image*> images;
+	char* config_file_contents;
 
 #ifndef DESKTOP_APP
-    AAssetManager* asset_manager;
-    Application(AAssetManager* asset_manager);
+	AAssetManager* asset_manager;
+	Application(AAssetManager* asset_manager);
 #else
-    Application();
+	Application();
 #endif
-    ~Application();
-    Node* loadResources();
+	~Application();
+	Node* parseXML(rapidxml::xml_document<>& doc);
+	void parseXMLNode(rapidxml::xml_node<>* xml_node,
+			scenegraph::Node* scene_node);
+	Node* loadXML(const char* xml_filename);
+	Node* loadResources();
+	Image* loadImage(const char* filename);
 
-    void init();
-    void step();
+	void init();
+	void step();
 
-    template<typename SceneGraphRenderer_T>
-    void render(SceneGraphRenderer_T* renderer) {
-    	renderer->render(scenegraph_root, camera);
-    }
+	template<typename SceneGraphRenderer_T>
+	void render(SceneGraphRenderer_T* renderer) {
+		renderer->render(scenegraph_root, camera);
+	}
 
-    void resize(int width, int height);
-} Application;
+	void resize(int width, int height);
+};
 
 #endif //_APPLICATION_H_

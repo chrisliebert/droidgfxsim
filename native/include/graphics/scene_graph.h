@@ -21,24 +21,20 @@
 
 namespace scenegraph {
 
-typedef struct Vertex
-{
+typedef struct Vertex {
 	float position[3];
 	float normal[3];
 	float textureCoordinate[2];
 } Vertex;
 
 typedef enum NodeType {
-	Geometry,
-	Group,
-	Material,
-	Switch,
-	Transform,
+	Geometry, Group, Material, Switch, Transform,
 } NodeType;
 
 class TransformNode;
 
-typedef struct Node {
+class Node {
+public:
 	Node();
 	//~Node();
 	Node* find(std::string& name);
@@ -53,28 +49,32 @@ typedef struct Node {
 	size_t num_children;
 	NodeType type;
 	std::vector<Node*> children;
-} Node;
+};
 
-typedef struct GeometryNode: public Node {
+class GeometryNode: public Node {
+public:
 	GeometryNode();
 	float center[3];
 	float radius;
 	std::vector<Vertex> vertex_data;
-} GeometryNode;
+};
 
-typedef struct MaterialNode: public Node {
+class MaterialNode: public Node {
+public:
 	MaterialNode();
 	std::string diffuse_texture;
-} MaterialNode;
+};
 
-typedef struct SwitchNode: public Node {
+class SwitchNode: public Node {
+public:
 	bool enabled;
-} SwitchNode;
+};
 
-typedef struct TransformNode: public Node {
-  TransformNode();
+class TransformNode: public Node {
+public:
+	TransformNode();
 	glm::mat4 matrix;
-} TransformNode;
+};
 
 //TransformNode* Node::find(std::string& search)
 //TransformNode* Node::find(const char* search)
@@ -87,11 +87,13 @@ typedef struct TransformNode: public Node {
 template<typename node_t>
 void destroy(node_t* node) {
 	node_t* root = (node_t*) node;
-	if(root == 0) return;
-	for(std::vector<Node*>::iterator it = root->children.begin(); it!=root->children.end(); ++it) {
+	if (root == 0)
+		return;
+	for (std::vector<Node*>::iterator it = root->children.begin();
+			it != root->children.end(); ++it) {
 		Node* child = *it;
 		assert(child);
-		switch(child->type) {
+		switch (child->type) {
 		case Geometry:
 			destroy((GeometryNode*) child);
 			break;

@@ -4,13 +4,11 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
-//#include <glm/gtx/transform.hpp>
 #include <glm/vec3.hpp>
 
 #include "graphics/gl_code.h"
 
-class Camera
-{
+class Camera {
 public:
 	Camera();
 	glm::mat4 modelViewMatrix;

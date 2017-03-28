@@ -40,18 +40,17 @@ using std::string;
 
 using namespace scenegraph;
 
-class WavefrontSceneGraphFactory
-{
+class WavefrontSceneGraphFactory {
 public:
 	WavefrontSceneGraphFactory();
 	~WavefrontSceneGraphFactory();
 	void addTexture(const char*);
-  
-	#ifndef DESKTOP_APP
-		bool addWavefront(const char*, glm::mat4, AAssetManager*);
-	#else
-		bool addWavefront(const char*, glm::mat4);
-	#endif
+
+#ifndef DESKTOP_APP
+	bool addWavefront(const char*, glm::mat4, AAssetManager*);
+#else
+	bool addWavefront(const char*, glm::mat4);
+#endif
 
 	Node* build();
 	std::set<std::string> textures;
