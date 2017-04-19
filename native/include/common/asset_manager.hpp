@@ -3,6 +3,7 @@
 
 #include "common/log.h"
 #include <cassert>
+#include <cstring>
 #include <string>
 
 #if defined(__ANDROID__)

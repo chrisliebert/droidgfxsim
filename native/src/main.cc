@@ -47,7 +47,7 @@ void pre_gl_call(const char *name, void *funcptr, int len_args, ...) {
 #endif
 
 #ifndef RENDERER
-#define RENDERER GL3SceneGraphRenderer
+#define RENDERER GL2SceneGraphRenderer
 #endif
 
 int width = 1200;
