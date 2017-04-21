@@ -43,7 +43,7 @@ void pre_gl_call(const char *name, void *funcptr, int len_args, ...) {
 // (this is necessary to ensure render function is called when debugging)
 // A high of a value will reduce input responsiveness
 #ifndef MAX_SEQUENTIAL_UPDATE_COUNT
-#define MAX_SEQUENTIAL_UPDATE_COUNT 10
+#define MAX_SEQUENTIAL_UPDATE_COUNT 60
 #endif
 
 #ifndef RENDERER
@@ -158,7 +158,7 @@ int main(int argc, char** argv) {
 		return -1;
 	}
 
-	window = glfwCreateWindow(width, height, "Obj viewer", NULL, NULL);
+	window = glfwCreateWindow(width, height, "Simulator", NULL, NULL);
 	if (window == NULL) {
 		LOGE("Failed to open GLFW window. ");
 		glfwTerminate();

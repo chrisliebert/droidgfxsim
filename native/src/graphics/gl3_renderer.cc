@@ -110,11 +110,7 @@ GL3SceneGraphRenderer::GL3SceneGraphRenderer(
 		std::map<std::string, Image*>& images) {
 	for (std::map<std::string, Image*>::iterator it = images.begin();
 			it != images.end(); ++it) {
-		texture_ids[it->first] = loadTexture(it->second);
-		if (it->second->data) {
-			delete it->second->data;
-			it->second->data = 0;
-		}
+		texture_ids[it->first] = it->second->loadTexture();
 		delete it->second;
 		it->second = 0;
 	}

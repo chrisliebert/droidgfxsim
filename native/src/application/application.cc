@@ -1,8 +1,5 @@
 #include <sstream>
 
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
-
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/quaternion.hpp>
 
@@ -11,20 +8,6 @@
 
 #define XML_FILENAME "data.xml"
 
-Image *loadImageAsset(const char *filename, AssetManager *manager) {
-    Image *image = new Image();
-    assert(image);
-    size_t file_length = 0;
-    unsigned char *image_file_bytes = manager->loadBinaryFile(filename, file_length);
-    assert(file_length > 0);
-    image->data = stbi_load_from_memory(image_file_bytes, file_length * sizeof(unsigned char),
-                                        &image->w, &image->h, &image->comp, STBI_default);
-    if (image->data == 0) {
-        LOGE("Unable to load image: %s", filename);
-        return 0;
-    }
-    return image;
-}
 
 Node* Application::loadResources() {
 	return loadXML(XML_FILENAME);
@@ -51,8 +34,9 @@ Application::Application() {
 }
 
 Application::~Application() {
-	if (simulation)
+	if (simulation) {
 		delete simulation;
+	}
 	if (scenegraph_root) {
 		scenegraph::destroy(scenegraph_root);
 		scenegraph_root = 0;
@@ -60,10 +44,6 @@ Application::~Application() {
 	for (std::map<std::string, Image*>::iterator it = images.begin();
 			it != images.end(); ++it) {
 		if (it->second) {
-			if (it->second->data) {
-				delete it->second->data;
-				it->second->data = 0;
-			}
 			delete it->second;
 			it->second = 0;
 		}
@@ -100,7 +80,8 @@ void Application::parseXMLNode(rapidxml::xml_node<>* my_xml_node,
 				assert(status);
 				for (std::set<std::string>::iterator it = factory.textures.begin(); it != factory.textures.end(); ++it) {
 					std::string s = *it;
-					Image* t = loadImageAsset(s.c_str(), asset_manager);
+					Image* t = new Image(s.c_str(), asset_manager);
+					assert(t);
 					images[s] = t;
 				}
 				Node* wf = factory.build();
@@ -141,10 +122,6 @@ void Application::resize(int width, int height) {
 }
 
 void Application::step() {
-	grey += 0.01f;
-	if (grey > 1.0f) {
-		grey = 0.0f;
-	}
 	if (!simulation)
 		return;
 
