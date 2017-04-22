@@ -6,7 +6,7 @@
 #include "common/asset_manager.hpp"
 #include "common/log.h"
 
-#ifndef DESKTOP_APP
+#if defined(__ANDROID__)
 	#include <jni.h>
   	#if DYNAMIC_ES3
     #include "gl3stub.h"
@@ -29,10 +29,14 @@
 typedef struct Image {
 	int w, h, comp;
 	unsigned char* data;
+	Image(const char *filename, AssetManager *manager);
+	Image();
+	~Image();
+	bool loadAsset(const char *filename, AssetManager *manager);
+	GLuint loadTexture();
 } Image;
 
 GLuint createProgram(const char* pVertexSource, const char* pFragmentSource);
-GLuint loadTexture(Image* texture);
 
 #define BUFFER_OFFSET(x)((char *)NULL+(x))
 

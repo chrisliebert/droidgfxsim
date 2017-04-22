@@ -11,12 +11,9 @@
 #include "graphics/gl_code.h"
 #include "graphics/scene_graph.h"
 #include "graphics/wavefront_factory.h"
-
 #include "physics/simulation.h"
 
 class Application {
-private:
-	float grey;
 public:
 	scenegraph::Node* scenegraph_root;
 	Simulation* simulation;
