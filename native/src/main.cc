@@ -106,12 +106,6 @@ void keyboardFunc(GLFWwindow* window, int key, int scancode, int action,
 				application = 0;
 			}
 			if (key == GLFW_KEY_SPACE) {
-				//TransformNode* t = (TransformNode*) application->scenegraph_root->find("Cube.001");
-
-				//btVector3 origin(0.0, 10.0, 0.0);
-				//btTransform transform;
-				//transform.setOrigin(origin);
-				//application->physics_nodes[1].body->setWorldTransform(transform);
 				btVector3 up_force(0.0, 100.0, 0.0);
 				const btVector3 rel_pos(0.0, 1.0, 0.0);
 				application->simulation->physics_nodes[1].body->applyForce(
@@ -120,10 +114,6 @@ void keyboardFunc(GLFWwindow* window, int key, int scancode, int action,
 						up_force, rel_pos);
 				application->simulation->physics_nodes[3].body->applyForce(
 						up_force, rel_pos);
-				//btVector3 angular_velocity(1.0, 1.0, 1.0);
-				//application->physics_nodes[1].body->setAngularVelocity(angular_velocity);
-
-				//glm::translate(t->matrix, glm::vec3(0.0, 10.0, 0.0));
 			}
 
 			// Close window
@@ -143,9 +133,9 @@ void reshapeFunc(GLFWwindow* window, int w, int h) {
 	// Get the frame buffer size.
 	glfwGetFramebufferSize(window, &fb_w, &fb_h);
 	glViewport(0, 0, fb_w, fb_h);
-	//todo: create new renderer on resize or allow resize function in renderer
-	if (application)
+	if (application){
 		application->resize(fb_w, fb_h);
+	}
 	width = w;
 	height = h;
 }
@@ -239,10 +229,10 @@ int main(int argc, char** argv) {
 		delete renderer;
 	}
 
-	if (application)
+	if (application) {
 		delete application;
+	}
 
 	glfwDestroyWindow(window);
-
 	return 0;
 }

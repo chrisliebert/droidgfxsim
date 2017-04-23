@@ -1,3 +1,5 @@
+// Copyright (C) 2017 Chris Liebert
+
 #include "graphics/gl_code.h"
 #include "graphics/scene_graph.h"
 #include "graphics/gl2_renderer.h"
@@ -8,18 +10,12 @@ void GL2SceneGraphRenderer::walk_init_buffers(Node* node) {
 		GeometryNode* geometry_node = (GeometryNode*) node;
 		assert(geometry_node);
 		if(vbos.find(geometry_node) == vbos.end()) {
-			//LOGI("Creating new geometry node %s", geometry_node->name.c_str());
 			GLuint vbo;
 			glGenBuffers(1, &vbo);
 			glBindBuffer(GL_ARRAY_BUFFER, vbo);
 			glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * geometry_node->vertex_data.size(),
 					geometry_node->vertex_data.data(), GL_STATIC_DRAW);
 			glBindBuffer(GL_ARRAY_BUFFER, 0);
-			//glGenBuffers(OBJECTS_COUNT, vinx);
-			//glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vinx[i]);
-			//glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indexes[0]) * faces_count[i] * 3,
-			//			 &indexes[indices_offset_table[i]], GL_STATIC_DRAW);
-			//glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 			vbos.insert(std::make_pair(geometry_node, vbo));
 		}
 	}
@@ -36,9 +32,7 @@ void GL2SceneGraphRenderer::walk_render(Node* node) {
 		assert(geometry_node);
 		if(vbos.find(geometry_node) != vbos.end()) {
 			GLuint vbo = vbos[geometry_node];
-			//glUseProgram(shader_program);
 			glBindBuffer(GL_ARRAY_BUFFER, vbo);
-			//glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vinx[index]);
 			glEnableVertexAttribArray(0);
 			glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), BUFFER_OFFSET(0));
 			glEnableVertexAttribArray(1);
@@ -46,13 +40,10 @@ void GL2SceneGraphRenderer::walk_render(Node* node) {
 			glEnableVertexAttribArray(2);
 			glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex),	BUFFER_OFFSET(6 * sizeof(float)));
 			glDrawArrays(GL_TRIANGLES, 0, geometry_node->vertex_data.size());
-			//glDrawElements(GL_TRIANGLES, faces_count[index] * 3, INX_TYPE, BUFFER_OFFSET(0));
 			glDisableVertexAttribArray(2);
 			glDisableVertexAttribArray(1);
 			glDisableVertexAttribArray(0);
 			glBindBuffer(GL_ARRAY_BUFFER, 0);
-			//glUseProgram(0);
-			//glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 		}
 	} else if(node->type == NodeType::Material) {
 		MaterialNode* material_node = (MaterialNode*) node;
@@ -66,9 +57,7 @@ void GL2SceneGraphRenderer::walk_render(Node* node) {
 		}
 	} else if(node->type == NodeType::Transform) {
 		TransformNode* tn = (TransformNode*) node;
-		//glUseProgram(shader_program);
 		glUniformMatrix4fv(matrix_uniform_location, 1, GL_FALSE, glm::value_ptr(tn->matrix));
-		//glUseProgram(0);
 	}
 	for(std::vector<Node*>::iterator it = node->children.begin(); it!=node->children.end(); ++it) {
 		Node* child = *it;
@@ -86,18 +75,18 @@ GL2SceneGraphRenderer::GL2SceneGraphRenderer(std::map<std::string, Image*>& imag
 
 	const char* vertex_shader_src =
 		"#version 100																		\n"
-		"attribute highp vec3 vPosition;					        			        			\n"
-		"attribute highp vec3 vNormal;															\n"
-		"attribute highp vec2 vTexCoord;															\n"
-		"uniform highp mat4 projection;                											\n"
-		"uniform highp mat4 modelview;                  											\n"
-		"uniform highp mat4 matrix;               												\n"
-		"varying highp vec3 fragPos;																\n"
-		"varying highp vec3 normal;																\n"
-		"varying highp vec2 texcoord;																\n"
-		"varying highp vec3 lightPos;																\n"
-		"highp mat4 mat4_inverse(highp mat4 m) {																\n"
-		"   highp float																			\n"
+		"attribute highp vec3 vPosition;					        			        	\n"
+		"attribute highp vec3 vNormal;														\n"
+		"attribute highp vec2 vTexCoord;													\n"
+		"uniform highp mat4 projection;                										\n"
+		"uniform highp mat4 modelview;                  									\n"
+		"uniform highp mat4 matrix;               											\n"
+		"varying highp vec3 fragPos;														\n"
+		"varying highp vec3 normal;															\n"
+		"varying highp vec2 texcoord;														\n"
+		"varying highp vec3 lightPos;														\n"
+		"highp mat4 mat4_inverse(highp mat4 m) {											\n"
+		"   highp float																		\n"
 		"      a00 = m[0][0], a01 = m[0][1], a02 = m[0][2], a03 = m[0][3],					\n"
 		"      a10 = m[1][0], a11 = m[1][1], a12 = m[1][2], a13 = m[1][3],					\n"
 		"      a20 = m[2][0], a21 = m[2][1], a22 = m[2][2], a23 = m[2][3],					\n"
@@ -133,12 +122,12 @@ GL2SceneGraphRenderer::GL2SceneGraphRenderer(std::map<std::string, Image*>& imag
 		"      a31 * b01 - a30 * b03 - a32 * b00,											\n"
 		"      a20 * b03 - a21 * b01 + a22 * b00) / det;									\n"
 		"}																					\n"
-		"highp mat4 mat4_transpose(mat4 inMatrix) {												\n"
-		"     highp vec4 i0 = inMatrix[0];														\n"
-		"     highp vec4 i1 = inMatrix[1];														\n"
-		"     highp vec4 i2 = inMatrix[2];														\n"
-		"     highp vec4 i3 = inMatrix[3];														\n"
-		"     highp mat4 outMatrix = mat4(														\n"
+		"highp mat4 mat4_transpose(mat4 inMatrix) {											\n"
+		"     highp vec4 i0 = inMatrix[0];													\n"
+		"     highp vec4 i1 = inMatrix[1];													\n"
+		"     highp vec4 i2 = inMatrix[2];													\n"
+		"     highp vec4 i3 = inMatrix[3];													\n"
+		"     highp mat4 outMatrix = mat4(													\n"
 		"                 vec4(i0.x, i1.x, i2.x, i3.x),										\n"
 		"                 vec4(i0.y, i1.y, i2.y, i3.y),										\n"
 		"                 vec4(i0.z, i1.z, i2.z, i3.z),										\n"
@@ -150,8 +139,8 @@ GL2SceneGraphRenderer::GL2SceneGraphRenderer(std::map<std::string, Image*>& imag
 		"	gl_Position = projection * modelview											\n"
 		"		* matrix * vec4(vPosition, 1.0);											\n"
 		"	fragPos = vec3(modelview * matrix * vec4(vPosition, 1.0));						\n"
-		"	normal = mat3(mat4_transpose(mat4_inverse(modelview * matrix))) * vNormal;				\n"
-		"	highp vec3 lightPosIn = vec3(0.0, 10.0, 0.0);											\n"
+		"	normal = mat3(mat4_transpose(mat4_inverse(modelview * matrix))) * vNormal;		\n"
+		"	highp vec3 lightPosIn = vec3(0.0, 10.0, 0.0);									\n"
 		"	lightPos = vec3(modelview * vec4(lightPosIn, 1.0));								\n"
 		"	texcoord = vTexCoord;															\n"
 		"}																					\n";
@@ -196,15 +185,11 @@ GL2SceneGraphRenderer::~GL2SceneGraphRenderer() {
 		GLuint vbo = it->second;
 		glDeleteBuffers(1, &vbo);
 	}
-	//for(std::map<GeometryNode*, GLuint>::iterator it = ibos.begin(); it != ibos.end(); it++) {
-	//  glDeleteBuffers(1, &it->second);
-	//}
 	for(std::map<std::string, GLuint>::iterator it = texture_ids.begin(); it != texture_ids.end(); ++it) {
 		GLuint texture_id = it->second;
 		glDeleteTextures(1, &texture_id);
 	}
 	vbos.clear();
-
 	glDeleteProgram(shader_program);
 }
 
@@ -214,9 +199,9 @@ void GL2SceneGraphRenderer::render(Node* node, Camera* camera) {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glUseProgram(shader_program);
 	GLint projection_location = glGetUniformLocation(shader_program, "projection");//todo save this
-	glUniformMatrix4fv(projection_location, 1, GL_FALSE, glm::value_ptr(camera->projectionMatrix));
+	glUniformMatrix4fv(projection_location, 1, GL_FALSE, glm::value_ptr(camera->projection_matrix));
 	GLint modelview_location = glGetUniformLocation(shader_program, "modelview");//todo save this
-	glUniformMatrix4fv(modelview_location, 1, GL_FALSE, glm::value_ptr(camera->modelViewMatrix));
+	glUniformMatrix4fv(modelview_location, 1, GL_FALSE, glm::value_ptr(camera->modelview_matrix));
 	walk_render(node);
 	glUseProgram(0);
 }

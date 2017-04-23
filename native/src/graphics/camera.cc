@@ -1,23 +1,24 @@
+// Copyright (C) 2017 Chris Liebert
 #include "graphics/camera.h"
 
 Camera::Camera() {
-	modelViewMatrix = glm::mat4(1.0);
-	projectionMatrix = glm::mat4(1.0);
-	horizontalAngle = M_PI; //3.1415926539
-	verticalAngle = 0.0;
+	modelview_matrix = glm::mat4(1.0);
+	projection_matrix = glm::mat4(1.0);
+	horizontal_angle = M_PI; //3.1415926539
+	vertical_angle = 0.0;
 	position = glm::vec3(0.0, 0.0, 0.0);
 	aim(0.0, 0.0);
 	update();
 }
 
 void Camera::aim(double x, double y) {
-	horizontalAngle += x;
-	verticalAngle += y;
+	horizontal_angle += x;
+	vertical_angle += y;
 
-	direction = glm::vec3(cos(verticalAngle) * sin(horizontalAngle),
-			sin(verticalAngle), cos(verticalAngle) * cos(horizontalAngle));
-	right = glm::vec3(sin(horizontalAngle - M_PI / 2.0), 0.0,
-			cos(horizontalAngle - M_PI / 2.0));
+	direction = glm::vec3(cos(vertical_angle) * sin(horizontal_angle),
+			sin(vertical_angle), cos(vertical_angle) * cos(horizontal_angle));
+	right = glm::vec3(sin(horizontal_angle - M_PI / 2.0), 0.0,
+			cos(horizontal_angle - M_PI / 2.0));
 
 	up = glm::cross(right, direction);
 }
@@ -43,5 +44,5 @@ void Camera::moveRight(double amount) {
 }
 
 void Camera::update() {
-	modelViewMatrix = glm::lookAt(position, position + direction, up);
+	modelview_matrix = glm::lookAt(position, position + direction, up);
 }

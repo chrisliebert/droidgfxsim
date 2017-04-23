@@ -1,3 +1,5 @@
+// Copyright (C) 2017 Chris Liebert
+
 #ifndef _SIMULATION_H_
 #define _SIMULATION_H_
 
@@ -29,12 +31,10 @@ public:
 	std::map<int, PhysicsNode> physics_nodes;
 
 	void parseXMLNode(rapidxml::xml_node<>* my_xml_node, scenegraph::Node* scene_node);
-
     void addPhysicsNode(TransformNode* trans_node, btCollisionShape* collision_shape, float mass, float offset_x, float offset_y, float offset_z);
     void addPhysicsNode(TransformNode* trans_node, btCollisionShape* collision_shape, float mass);
     void addPhysicsBoxNode(TransformNode* trans_node, float mass, float width, float height, float length, float offset_x, float offset_y, float offset_z);
     void addPhysicsBoxNode(TransformNode* trans_node, float mass, float width, float height, float length);
-
 	Simulation();
 	~Simulation();
 	void step();

@@ -1,32 +1,25 @@
+// Copyright (C) 2017 Chris Liebert
+
 #include "graphics/gl_code.h"
 #include "graphics/scene_graph.h"
 #include "graphics/gl3_renderer.h"
 
 void GL3SceneGraphRenderer::walk_init_buffers(Node* node) {
-	if (node == 0)
-		return;
+	if (node == 0) { return; }
 	if (node->type == NodeType::Geometry) {
 		GeometryNode* geometry_node = (GeometryNode*) node;
 		assert(geometry_node);
 		if (vbos.find(geometry_node) == vbos.end()) {
-			//LOGI("Creating new geometry node %s", geometry_node->name.c_str());
 			GLuint vao, vbo;
 			glGenBuffers(1, &vbo);
 			glBindBuffer(GL_ARRAY_BUFFER, vbo);
 			glBufferData(GL_ARRAY_BUFFER,
 					sizeof(Vertex) * geometry_node->vertex_data.size(),
 					geometry_node->vertex_data.data(), GL_STATIC_DRAW);
-
 			glGenVertexArrays(1, &vao);
 			glBindVertexArray(vao);
 			vaos.insert(std::make_pair(geometry_node, vao));
-
 			glBindBuffer(GL_ARRAY_BUFFER, 0);
-			//glGenBuffers(OBJECTS_COUNT, vinx);
-			//glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vinx[i]);
-			//glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indexes[0]) * faces_count[i] * 3,
-			//			 &indexes[indices_offset_table[i]], GL_STATIC_DRAW);
-			//glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 			vbos.insert(std::make_pair(geometry_node, vbo));
 		}
 	}
@@ -76,7 +69,6 @@ void GL3SceneGraphRenderer::walk_render(Node* node) {
 					BUFFER_OFFSET(6 * sizeof(float)));
 
 			glDrawArrays(GL_TRIANGLES, 0, geometry_node->vertex_data.size());
-			//glDrawElements(GL_TRIANGLES, faces_count[index] * 3, INX_TYPE, BUFFER_OFFSET(0));
 			glDisableVertexAttribArray(2);
 			glDisableVertexAttribArray(1);
 			glDisableVertexAttribArray(0);
@@ -117,7 +109,7 @@ GL3SceneGraphRenderer::GL3SceneGraphRenderer(
 	images.clear();
 
 	const char* vertex_shader_src =
-			"#version 300 es                            										\n"
+			"#version 300 es                            												\n"
 					"layout(location = 0) in vec3 vPosition;					        	    		\n"
 					"layout(location = 1) in vec3 vNormal;												\n"
 					"layout(location = 2) in vec2 vTexCoord;											\n"
@@ -141,7 +133,7 @@ GL3SceneGraphRenderer::GL3SceneGraphRenderer(
 					"}																					\n";
 
 	const char* fragment_shader_src =
-			"#version 300 es																	\n"
+			"#version 300 es																			\n"
 					"precision mediump float;                           			      	 			\n"
 					"in vec3 fragPos;																	\n"
 					"in vec3 normal;																	\n"
@@ -159,15 +151,15 @@ GL3SceneGraphRenderer::GL3SceneGraphRenderer(
 					"	vec3 ambient = ambientStrength * lightColor;    								\n"
 					"	vec3 norm = normalize(normal);													\n"
 					"	vec3 lightDir = normalize(lightPos - fragPos);									\n"
-					"	float diff = max(dot(norm, lightDir), 0.0);									\n"
+					"	float diff = max(dot(norm, lightDir), 0.0);										\n"
 					"	vec3 diffuse = diff * lightColor;												\n"
 					"	float specularStrength = 0.5f;													\n"
-					"	vec3 viewDir = normalize(-fragPos);											\n"
+					"	vec3 viewDir = normalize(-fragPos);												\n"
 					"	vec3 reflectDir = reflect(-lightDir, norm);  									\n"
-					"	float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.f);					\n"
+					"	float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.f);						\n"
 					"	vec3 specular = specularStrength * spec * lightColor; 							\n"
-					"	vec3 result = (ambient + diffuse + specular) * objectColor;					\n"
-					"	color = vec4(result, 1.0f);													\n"
+					"	vec3 result = (ambient + diffuse + specular) * objectColor;						\n"
+					"	color = vec4(result, 1.0f);														\n"
 					"}																					\n";
 	shader_program = createProgram(vertex_shader_src, fragment_shader_src);
 	glUseProgram(shader_program);
@@ -217,16 +209,13 @@ GL3SceneGraphRenderer::~GL3SceneGraphRenderer() {
 	vbos.clear();
 }
 
+/*
 #include "graphics/stb_easy_font.h"
-
 void printString(float x, float y, char *text, float r, float g, float b) {
-	//TODO: use custom shader
-	static char buffer[99999]; // ~500 chars
+	static char buffer[99999];
 	int num_quads;
 	GLuint vertex_data_size = sizeof(float) * 4;
-
 	num_quads = stb_easy_font_print(x, y, text, NULL, buffer, sizeof(buffer));
-
 	GLuint vao, vbo;
 	glGenBuffers(1, &vbo);
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
@@ -241,51 +230,37 @@ void printString(float x, float y, char *text, float r, float g, float b) {
 			BUFFER_OFFSET(0));
 
 	glDrawArrays(GL_POINTS, 0, num_quads * 4);
-	//glDrawElements(GL_TRIANGLES, faces_count[index] * 3, INX_TYPE, BUFFER_OFFSET(0));
 	glDisableVertexAttribArray(0);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
-
 	glDeleteVertexArrays(1, &vao);
 	glDeleteBuffers(1, &vbo);
-
-	//glColor3f(r,g,b);
-	//glEnableClientState(GL_VERTEX_ARRAY);
-	//glVertexPointer(2, GL_FLOAT, 16, buffer);
-	//glDrawArrays(GL_QUADS, 0, num_quads*4);
-	//glDisableClientState(GL_VERTEX_ARRAY);
 }
+*/
 
 void GL3SceneGraphRenderer::render(Node* node, Camera* camera) {
 	glEnable(GL_DEPTH_TEST);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glUseProgram(shader_program);
-
 	walk_init_buffers(node);
 
-	/* Alternate version not supported with Android, or requires extension loading
-	 glBindBuffer(GL_UNIFORM_BUFFER, uniform_transform_buffer_id);
-	 GLvoid* p1 = glMapBuffer(GL_UNIFORM_BUFFER, GL_WRITE_ONLY);
-	 GLsizeiptr matrix_size = 16 * sizeof(float);
-	 GLvoid* p2 = (char*)p1 + matrix_size;
-	 memcpy(p1, glm::value_ptr(camera->projectionMatrix), matrix_size);
-	 memcpy(p2, glm::value_ptr(camera->modelViewMatrix), matrix_size);
-	 glUnmapBuffer(GL_UNIFORM_BUFFER);
-	 glBindBuffer(GL_UNIFORM_BUFFER, 0);
-	 */
+	// Alternate version not supported with Android, or requires extension loading
+	//glBindBuffer(GL_UNIFORM_BUFFER, uniform_transform_buffer_id);
+	//GLvoid* p1 = glMapBuffer(GL_UNIFORM_BUFFER, GL_WRITE_ONLY);
+	//GLsizeiptr matrix_size = 16 * sizeof(float);
+	//GLvoid* p2 = (char*)p1 + matrix_size;
+	// memcpy(p1, glm::value_ptr(camera->projectionMatrix), matrix_size);
+	//memcpy(p2, glm::value_ptr(camera->modelViewMatrix), matrix_size);
+	//glUnmapBuffer(GL_UNIFORM_BUFFER);
+	//glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
 	GLsizeiptr matrix_size = 16 * sizeof(float);
 	glBindBuffer(GL_UNIFORM_BUFFER, uniform_transform_buffer_id);
 	glBufferSubData(GL_UNIFORM_BUFFER, 0, matrix_size,
-			glm::value_ptr(camera->projectionMatrix));
-	//glBindBuffer(GL_UNIFORM_BUFFER, 0);
-
-	//glBindBuffer(GL_UNIFORM_BUFFER, uniform_transform_buffer_id);
+			glm::value_ptr(camera->projection_matrix));
 	glBufferSubData(GL_UNIFORM_BUFFER, matrix_size, matrix_size,
-			glm::value_ptr(camera->modelViewMatrix));
+			glm::value_ptr(camera->modelview_matrix));
 	glBindBuffer(GL_UNIFORM_BUFFER, 0);
-
 	walk_render(node);
-
 	glUseProgram(0);
 }

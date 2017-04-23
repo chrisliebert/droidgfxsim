@@ -1,3 +1,5 @@
+// Copyright (C) 2017 Chris Liebert
+
 #ifndef _ASSET_MANAGER_HPP_
 #define _ASSET_MANAGER_HPP_
 
@@ -20,15 +22,15 @@
             assert(mgr);
             AAsset* file = AAssetManager_open(mgr, path, AASSET_MODE_BUFFER);
             // Get the file length
-            size_t fileLength = AAsset_getLength(file);
+            size_t file_length = AAsset_getLength(file);
 
             // Allocate memory to read file
-            char* fileContent = new char[fileLength+1];
+            char* fileContent = new char[file_length+1];
             assert(fileContent);
 
-            AAsset_read(file, fileContent, fileLength);
+            AAsset_read(file, fileContent, file_length);
             AAsset_close(file);
-            fileContent[fileLength] = '\0';
+            fileContent[file_length] = '\0';
 
             std::string str(fileContent);
             delete [] fileContent;
@@ -38,13 +40,13 @@
         char* loadTextChars(const char* path) {
             AAsset* file = AAssetManager_open(mgr, path, AASSET_MODE_BUFFER);
             // Get the file length
-            size_t fileLength = AAsset_getLength(file);
+            size_t file_length = AAsset_getLength(file);
             // Allocate memory to read file
-            char* fileContent = new char[fileLength+1];
+            char* fileContent = new char[file_length+1];
             assert(fileContent);
-            AAsset_read(file, fileContent, fileLength);
+            AAsset_read(file, fileContent, file_length);
             AAsset_close(file);
-            fileContent[fileLength] = '\0';
+            fileContent[file_length] = '\0';
             return fileContent;
         }
 
@@ -79,7 +81,7 @@ public:
 	char* loadTextChars(const char* path) {
     	std::ifstream filestream(path);
     	if(!filestream.is_open()) {
-    		LOGE("Unable to load %s", path);
+    		LOGE("Unable to load %s, no data will be loaded", path);
     		return 0;
     	}
 		std::vector<char> buffer((std::istreambuf_iterator<char>(filestream)), std::istreambuf_iterator<char>());
@@ -95,7 +97,7 @@ public:
        std::ifstream filestream(filename, std::ios::in | std::ios::binary);
        file_length = 0;
        if (!filestream.is_open()) {
-    	   LOGE("Unable to open %s", filename);
+    	   LOGI("Unable to open %s", filename);
     	   return 0;
        }
        filestream.seekg(0, std::ios::end);

@@ -36,7 +36,7 @@ typedef struct Image {
 	GLuint loadTexture();
 } Image;
 
-GLuint createProgram(const char* pVertexSource, const char* pFragmentSource);
+GLuint createProgram(const char* vertex_source, const char* fragment_source);
 
 #define BUFFER_OFFSET(x)((char *)NULL+(x))
 

@@ -1,3 +1,5 @@
+// Copyright (C) 2017 Chris Liebert
+
 #ifndef _CAMERA_H_
 #define _CAMERA_H_
 
@@ -11,14 +13,14 @@
 class Camera {
 public:
 	Camera();
-	glm::mat4 modelViewMatrix;
-	glm::mat4 projectionMatrix;
+	glm::mat4 modelview_matrix;
+	glm::mat4 projection_matrix;
 	glm::vec3 position;
 	glm::vec3 direction;
 	glm::vec3 right;
 	glm::vec3 up;
-	double horizontalAngle;
-	double verticalAngle;
+	double horizontal_angle;
+	double vertical_angle;
 
 	void aim(double x, double y);
 	void moveForward(double amount);

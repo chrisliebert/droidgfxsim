@@ -1,3 +1,5 @@
+// Copyright (C) 2017 Chris Liebert
+
 #ifndef _WAVEFRONT_FACTORY_H_
 #define _WAVEFRONT_FACTORY_H_
 
@@ -46,10 +48,7 @@ public:
 	WavefrontSceneGraphFactory();
 	~WavefrontSceneGraphFactory();
 	void addTexture(const char*);
-
-	bool addWavefront(const char*, glm::mat4, AssetManager*);
-
-
+	bool addWavefront(const char* wavefront_filename, glm::mat4, AssetManager* asset_manager);
 	Node* build();
 	std::set<std::string> textures;
 private:

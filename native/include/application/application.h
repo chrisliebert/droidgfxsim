@@ -1,3 +1,5 @@
+// Copyright (C) 2017 Chris Liebert
+
 #ifndef _APPLICATION_H_
 #define _APPLICATION_H_
 

@@ -1,3 +1,5 @@
+# Copyright (C) 2017 Chris Liebert
+
 CMAKE_MINIMUM_REQUIRED(VERSION 3.0)
 
 SET(EXECUTABLE_NAME "desktop_app")
@@ -48,7 +50,6 @@ ENDIF("${CMAKE_BUILD_TYPE}" STREQUAL Release)
 IF(NOT USE_EXISTING_GLFW3 AND NOT GLFW3_FOUND)
     FIND_PACKAGE(Git REQUIRED)
     SET(GLFW3_PREFIX ${CMAKE_BINARY_DIR}/glfw3) 
-  
     MESSAGE(" GLFW3 not found, downloading via GIT")
     INCLUDE(ExternalProject)
     SET(ADDITIONAL_GLFW3_OPTIONS "")
@@ -150,23 +151,17 @@ IF(NOT USE_EXISTING_BULLET AND NOT BULLET_FOUND)
 	  UPDATE_COMMAND "" #disable updating git repo every build
 	  LOG_DOWNLOAD ON
 	)
-
     ExternalProject_Get_Property(bullet_dependency install_dir)
     SET(BULLET_INCLUDE_DIRS ${install_dir}/include ${install_dir}/include/bullet)
-
 	ADD_LIBRARY(LinearMathLibrary STATIC IMPORTED)
-	#ADD_LIBRARY(BulletInverseDynamicsLibrary STATIC IMPORTED)
 	ADD_LIBRARY(BulletCollisionLibrary STATIC IMPORTED)
 	ADD_LIBRARY(BulletDynamicsLibrary STATIC IMPORTED)
 	ADD_LIBRARY(BulletSoftBodyLibrary STATIC IMPORTED)
-
 	SET_PROPERTY(TARGET LinearMathLibrary PROPERTY IMPORTED_LOCATION ${BULLET_PREFIX}/lib/${LIB_PREFIX}LinearMath${LIB_SUFFIX}${LIB_EXTENSION})
-	#SET_PROPERTY(TARGET BulletInverseDynamicsLibrary PROPERTY IMPORTED_LOCATION ${BULLET_PREFIX}/lib/${LIB_PREFIX}BulletInverseDynamics${LIB_SUFFIX}${LIB_EXTENSION})
 	SET_PROPERTY(TARGET BulletCollisionLibrary PROPERTY IMPORTED_LOCATION ${BULLET_PREFIX}/lib/${LIB_PREFIX}BulletCollision${LIB_SUFFIX}${LIB_EXTENSION})
 	SET_PROPERTY(TARGET BulletDynamicsLibrary PROPERTY IMPORTED_LOCATION ${BULLET_PREFIX}/lib/${LIB_PREFIX}BulletDynamics${LIB_SUFFIX}${LIB_EXTENSION})
 	SET_PROPERTY(TARGET BulletSoftBodyLibrary PROPERTY IMPORTED_LOCATION ${BULLET_PREFIX}/lib/${LIB_PREFIX}BulletSoftBody${LIB_SUFFIX}${LIB_EXTENSION})
-
-	SET(BULLET_LIBRARIES BulletSoftBodyLibrary BulletDynamicsLibrary BulletCollisionLibrary LinearMathLibrary) #BulletInverseDynamicsLibrary 
+	SET(BULLET_LIBRARIES BulletSoftBodyLibrary BulletDynamicsLibrary BulletCollisionLibrary LinearMathLibrary)
 ELSE(USE_EXISTING_BULLET)
 	FIND_PACKAGE(Bullet REQUIRED)
 ENDIF(NOT USE_EXISTING_BULLET AND NOT BULLET_FOUND)

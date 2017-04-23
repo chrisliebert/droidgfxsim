@@ -1,3 +1,5 @@
+// Copyright (C) 2017 Chris Liebert
+
 #include <sstream>
 
 #define GLM_ENABLE_EXPERIMENTAL
@@ -7,7 +9,6 @@
 #include "common/log.h"
 
 #define XML_FILENAME "data.xml"
-
 
 Node* Application::loadResources() {
 	return loadXML(XML_FILENAME);
@@ -25,7 +26,6 @@ Application::Application() {
     simulation = new Simulation();
 	assert(simulation);
 	scenegraph_root = loadResources();
-	assert(scenegraph_root);
 	init();
     if(config_file_contents) {
         delete [] config_file_contents;
@@ -101,6 +101,9 @@ void Application::parseXMLNode(rapidxml::xml_node<>* my_xml_node,
 Node* Application::loadXML(const char* xml_filename) {
 	rapidxml::xml_document<> doc;
     config_file_contents = asset_manager->loadTextChars(xml_filename);
+    if(config_file_contents == 0) {
+    	return 0;
+    }
 	doc.parse<0>(config_file_contents);
 	return parseXML(doc);
 }
@@ -116,7 +119,7 @@ void Application::init() {
 
 void Application::resize(int width, int height) {
 	assert(camera);
-	camera->projectionMatrix = glm::perspective(45.0f,
+	camera->projection_matrix = glm::perspective(45.0f,
 			(float) ((double) width / (double) height), 0.1f, 10000.0f);
 	camera->update();
 }

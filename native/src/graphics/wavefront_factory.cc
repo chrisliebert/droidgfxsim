@@ -1,3 +1,5 @@
+// Copyright (C) 2017 Chris Liebert
+
 #include "common/asset_manager.hpp"
 #include "common/log.h"
 #include "graphics/wavefront_factory.h"

@@ -1,3 +1,5 @@
+// Copyright (C) 2017 Chris Liebert
+
 #ifndef _LOG_H_
 #define _LOG_H_
 
@@ -17,12 +19,25 @@
 		printf("%s\n", _log_message);\
 	}\
 
+#if defined(WIN32)
+	#include <windows.h>
+	#define	LOGE(...)\
+	{\
+		char _log_message[MAX_LOG_MESSAGE_LENGTH];\
+		snprintf(_log_message, MAX_LOG_MESSAGE_LENGTH, __VA_ARGS__);\
+		MessageBox(0, _log_message, "Error!", MB_OK);\
+	}\
+
+#else
 	#define	LOGE(...)\
 	{\
 		char _log_message[MAX_LOG_MESSAGE_LENGTH];\
 		snprintf(_log_message, MAX_LOG_MESSAGE_LENGTH, __VA_ARGS__);\
 		fprintf(stderr, "%s\n", _log_message);\
 	}\
+
+
+#endif // defined(WIN32)
 
 #endif
 

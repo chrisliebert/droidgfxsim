@@ -1,3 +1,5 @@
+// Copyright (C) 2017 Chris Liebert
+
 #include "graphics/gl_code.h"
 #include "graphics/scene_graph.h"
 

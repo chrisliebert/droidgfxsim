@@ -1,3 +1,5 @@
+// Copyright (C) 2017 Chris Liebert
+
 #include <jni.h>
 #include <android/log.h>
 #include <sched.h>
@@ -34,11 +36,13 @@ JNIEXPORT void JNICALL Java_com_android_glappjni_GLAppJNILib_destroy(JNIEnv *env
 
 };
 
-//#if !defined(DYNAMIC_ES3)
-//static GLboolean gl3stubInit() {
-//    return GL_TRUE;
-//}
-//#endif
+#if !defined(DYNAMIC_ES3)
+	#ifndef gl3stubInit
+	static GLboolean gl3stubInit() {
+		return GL_TRUE;
+	}
+	#endif
+#endif
 
 JNIEXPORT void JNICALL Java_com_android_glappjni_GLAppJNILib_init(JNIEnv *env, jobject obj, jobject asset_mgr) {
 	AAssetManager* asset_manager = AAssetManager_fromJava(env, asset_mgr);
@@ -118,7 +122,6 @@ JNIEXPORT void JNICALL Java_com_android_glappjni_GLAppJNILib_destroy(JNIEnv *env
             scenegraph::destroy(app->scenegraph_root);
             app->scenegraph_root = 0;
         }
-        LOGI("Destroyed scenegraph");
         delete app;
         app = 0;
     }

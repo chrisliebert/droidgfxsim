@@ -1,3 +1,5 @@
+// Copyright (C) 2017 Chris Liebert
+
 #ifndef _GL2_RENDERER_H_
 #define _GL2_RENDERER_H_
 
@@ -7,7 +9,6 @@ class GL2SceneGraphRenderer {
 protected:
 	GLuint shader_program;
 	std::map<GeometryNode*, GLuint> vbos;
-	//std::map<GeometryNode*, GLuint> ibos;
 	std::map<std::string, GLuint> texture_ids;
 	GLuint matrix_uniform_location;
 

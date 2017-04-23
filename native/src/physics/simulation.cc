@@ -1,36 +1,26 @@
+// Copyright (C) 2017 Chris Liebert
+
 #include <cmath>
 #include "simulation.h"
 
 Simulation::Simulation() {
-	///collision configuration contains default setup for memory, collision setup. Advanced users can create their own configuration.
 	collision_configuration = new btDefaultCollisionConfiguration();
 	assert(collision_configuration);
-
-	///use the default collision dispatcher. For parallel processing you can use a diffent dispatcher (see Extras/BulletMultiThreaded)
 	dispatcher = new btCollisionDispatcher(collision_configuration);
 	assert(dispatcher);
-
-	///btDbvtBroadphase is a good general purpose broadphase. You can also try out btAxis3Sweep.
 	overlapping_pair_cache = new btDbvtBroadphase();
 	assert(overlapping_pair_cache);
-
-	///the default constraint solver. For parallel processing you can use a different solver (see Extras/BulletMultiThreaded)
 	solver = new btSequentialImpulseConstraintSolver;
 	assert(solver);
-
 	dynamics_world = new btDiscreteDynamicsWorld(dispatcher,
 			overlapping_pair_cache, solver, collision_configuration);
 	assert(dynamics_world);
-
 	dynamics_world->setGravity(btVector3(0, -10, 0));
 }
 
 Simulation::~Simulation() {
 	//cleanup in the reverse order of creation/initialization
-
-	///-----cleanup_start-----
-
-	//remove the rigidbodies from the dynamics world and delete them
+	//remove the rigid bodies from the dynamics world and delete them
 	for (int i = dynamics_world->getNumCollisionObjects() - 1; i >= 0; i--) {
 		btCollisionObject* obj = dynamics_world->getCollisionObjectArray()[i];
 		btRigidBody* body = btRigidBody::upcast(obj);

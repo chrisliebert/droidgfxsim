@@ -1,3 +1,5 @@
+// Copyright (C) 2017 Chris Liebert
+
 #ifndef _GL3_RENDERER_H_
 #define _GL3_RENDERER_H_
 
@@ -10,10 +12,8 @@ protected:
 	GLint uniform_transform_buffer_block_size;
 	std::map<GeometryNode*, GLuint> vaos;
 	std::map<GeometryNode*, GLuint> vbos;
-	//std::map<GeometryNode*, GLuint> ibos;
 	std::map<std::string, GLuint> texture_ids;
 	GLuint matrix_uniform_location;
-	//GLuint mvp_uniform_location;
 
 	void walk_init_buffers(Node* node);
 	void walk_render(Node* node);
