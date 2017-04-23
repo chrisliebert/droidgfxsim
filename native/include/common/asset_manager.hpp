@@ -78,6 +78,10 @@ public:
 
 	char* loadTextChars(const char* path) {
     	std::ifstream filestream(path);
+    	if(!filestream.is_open()) {
+    		LOGE("Unable to load %s", path);
+    		return 0;
+    	}
 		std::vector<char> buffer((std::istreambuf_iterator<char>(filestream)), std::istreambuf_iterator<char>());
 		filestream.close();
 		buffer.push_back('\0');
