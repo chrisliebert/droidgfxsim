@@ -30,11 +30,11 @@ bool hasEnding(std::string const &fullString, std::string const &ending) {
 	}
 }
 
-void WavefrontSceneGraphFactory::addTexture(const char* textureFileName) {
-	std::set<std::string>::const_iterator it = textures.find(textureFileName);
+void WavefrontSceneGraphFactory::addTexture(const char* texture_file_name) {
+	std::set<std::string>::const_iterator it = textures.find(texture_file_name);
 
 	if (it == textures.end()) {
-		textures.insert(std::string(textureFileName));
+		textures.insert(std::string(texture_file_name));
 	}
 }
 
@@ -86,16 +86,16 @@ void replaceSubStr(string& source, const char* it, const char* with) {
 
 class MaterialStringStreamReader : public tinyobj::MaterialReader {
 public:
-	MaterialStringStreamReader(const std::string& matSStream)
-	: m_matSStream(matSStream) {}
+	MaterialStringStreamReader(const std::string& _mat_sstream)
+	: mat_sstream(_mat_sstream) {}
 	virtual ~MaterialStringStreamReader() {}
-	virtual bool operator()(const std::string& matId,
+	virtual bool operator()(const std::string& mat_id,
 			std::vector<tinyobj::material_t>* materials,
-			std::map<std::string, int>* matMap,
+			std::map<std::string, int>* mat_map,
 			std::string* err) {
-		(void)matId;
+		(void)mat_id;
 		std::string warning;
-		tinyobj::LoadMtl(matMap, materials, &m_matSStream, &warning);
+		tinyobj::LoadMtl(mat_map, materials, &mat_sstream, &warning);
 
 		if (!warning.empty()) {
 			if (err) {
@@ -106,12 +106,13 @@ public:
 	}
 
 private:
-	std::stringstream m_matSStream;
+	std::stringstream mat_sstream;
 };
 
-std::vector<std::string> getMTLFilenames(const std::string& objContents) {
+// Find all the .mtl files included in a wavefront .obj source
+std::vector<std::string> getMTLFilenames(const std::string& obj_contents) {
 	std::vector<std::string> filenames;
-	std::stringstream ss(objContents);
+	std::stringstream ss(obj_contents);
 	std::string line;
 	while(std::getline(ss, line, '\n')) {
 		size_t pos = line.find("mtllib ");
@@ -135,28 +136,28 @@ bool WavefrontSceneGraphFactory::addWavefront(const char* file_name, glm::mat4 m
 	size_t initial_num_materials = this->materials.size();
 	tinyobj::attrib_t attrib;
 	std::vector<tinyobj::shape_t> shapes;
-	std::vector<tinyobj::material_t> materialList;
+	std::vector<tinyobj::material_t> material_list;
 	std::string err;
-	std::stringstream objStream;
-	std::stringstream matStream;
+	std::stringstream obj_stream;
+	std::stringstream mat_stream;
 	const std::string obj_contents = asset_manager->loadTextFile(file_name);
 	std::vector<std::string> mtl_filenames = getMTLFilenames(obj_contents);
-	objStream << obj_contents;
+	obj_stream << obj_contents;
 	for(std::vector<std::string>::iterator it = mtl_filenames.begin(); it != mtl_filenames.end(); ++it) {
 		std::string mtl_filename = *it;
 		std::string mtl_contents = asset_manager->loadTextFile(mtl_filename.c_str());
-		matStream << mtl_contents;
+		mat_stream << mtl_contents;
 	}
-	const std::string mtls_contents = matStream.str();
-	MaterialStringStreamReader matSSReader(mtls_contents);
-	bool ret = tinyobj::LoadObj(&attrib, &shapes, &materialList, &err, &objStream, &matSSReader);
+	const std::string mtls_contents = mat_stream.str();
+	MaterialStringStreamReader mat_ss_reader(mtls_contents);
+	bool ret = tinyobj::LoadObj(&attrib, &shapes, &material_list, &err, &obj_stream, &mat_ss_reader);
 	if(!ret) {
 		return false;
 	}
-	std::stringstream fileNamePath;
-	fileNamePath << file_name;
+	std::stringstream file_name_path;
+	file_name_path << file_name;
 	std::stringstream namess;
-	namess << name << "[" << fileNamePath.str() << "]";
+	namess << name << "[" << file_name_path.str() << "]";
 	this->name = namess.str();
 	if (!err.empty()) {
 		LOGE("%s\n", err.c_str());
@@ -168,9 +169,8 @@ bool WavefrontSceneGraphFactory::addWavefront(const char* file_name, glm::mat4 m
 	}
 
 	// load diffuse textures
-	for (size_t mi = 0; mi < materialList.size(); mi++) {
-		tinyobj::material_t* mp = &materialList[mi];
-
+	for (size_t mi = 0; mi < material_list.size(); mi++) {
+		tinyobj::material_t* mp = &material_list[mi];
 		if (mp->diffuse_texname.length() > 0) {
 			// Check for paths that are not valid (unix support for paths with \ or \\ instead of /
 #ifndef _MSC_VER
@@ -199,13 +199,11 @@ bool WavefrontSceneGraphFactory::addWavefront(const char* file_name, glm::mat4 m
 			tinyobj::index_t idx0 = shapes[s].mesh.indices[3 * f + 0];
 			tinyobj::index_t idx1 = shapes[s].mesh.indices[3 * f + 1];
 			tinyobj::index_t idx2 = shapes[s].mesh.indices[3 * f + 2];
-
 			int current_material_id = shapes[s].mesh.material_ids[f];
-
 			if ((current_material_id < 0)
-					|| (current_material_id >= materialList.size())) {
+					|| (current_material_id >= material_list.size())) {
 				// Invalid material ID. Use default material.
-				current_material_id = (int) materialList.size(); // Default material is added to the last item in `materialList`.
+				current_material_id = (int) material_list.size(); // Default material is added to the last item in `materialList`.
 				LOGE(
 						"Invalid material index: %i reverting to default material.",
 						current_material_id);
@@ -213,7 +211,7 @@ bool WavefrontSceneGraphFactory::addWavefront(const char* file_name, glm::mat4 m
 
 			float diffuse[3];
 			for (size_t i = 0; i < 3; i++) {
-				diffuse[i] = materialList[current_material_id].diffuse[i];
+				diffuse[i] = material_list[current_material_id].diffuse[i];
 			}
 			float tc[3][2];
 			if (attrib.texcoords.size() > 0) {
@@ -242,8 +240,7 @@ bool WavefrontSceneGraphFactory::addWavefront(const char* file_name, glm::mat4 m
 					tc[2][1] = 0.f;
 				}
 			} else {
-				//LOGE("Texture coordinates are not defined");
-				//return false;
+				LOGI("Texture coordinates are not defined");
 			}
 
 			float v[3][3];
@@ -254,7 +251,6 @@ bool WavefrontSceneGraphFactory::addWavefront(const char* file_name, glm::mat4 m
 				assert(f0 >= 0);
 				assert(f1 >= 0);
 				assert(f2 >= 0);
-
 				v[0][k] = attrib.vertices[3 * f0 + k];
 				v[1][k] = attrib.vertices[3 * f1 + k];
 				v[2][k] = attrib.vertices[3 * f2 + k];
@@ -307,7 +303,7 @@ bool WavefrontSceneGraphFactory::addWavefront(const char* file_name, glm::mat4 m
 
 		if (geom_node->vertex_data.size() == 0) {
 			// Ignore scene nodes that don't have geometry
-			LOGE(
+			LOGI(
 					"Warning, scene node %s does not containing geometry, ommiting.",
 					shapes[s].name.c_str());
 			continue;
@@ -330,8 +326,6 @@ bool WavefrontSceneGraphFactory::addWavefront(const char* file_name, glm::mat4 m
 				vert->position[xyz] -= geom_node->center[xyz];
 			}
 		}
-
-		//LOGI("%s center calculated %f, %f, %f", shapes[s].name.c_str(), geom_node->center[0], geom_node->center[1], geom_node->center[2]);
 
 		geom_node->radius = 0.f;
 		// Radius calculation
@@ -361,9 +355,8 @@ bool WavefrontSceneGraphFactory::addWavefront(const char* file_name, glm::mat4 m
 			size_t node_mat_id = shapes[s].mesh.material_ids[s]
 					+ initial_num_materials;
 			node_material_association[geom_node] = node_mat_id;
-		} else {
-			//LOGE("Invalid material index defined for %s\n", geom_node->name.c_str());
 		}
+
 		geometry_nodes.push_back(geom_node);
 	}
 
@@ -379,7 +372,6 @@ Node* WavefrontSceneGraphFactory::build() {
 	Node* group = new Node();
 	assert(group);
 	group->name = std::string(name);
-	//LOGI("Creating group node %s", group->name.c_str());
 
 	for (std::vector<MaterialNode*>::iterator it = materials.begin();
 			it != materials.end(); ++it) {
@@ -397,7 +389,6 @@ Node* WavefrontSceneGraphFactory::build() {
 		assert(mat_node);
 		TransformNode* trans_node = new TransformNode();
 		assert(trans_node);
-
 		trans_node->matrix = glm::translate(glm::mat4(1.0f),
 				glm::vec3(geom_node->center[0], geom_node->center[1],
 						geom_node->center[2]));
