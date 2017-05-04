@@ -9,9 +9,14 @@ Android SDK sample ( see https://github.com/googlesamples/android-ndk/tree/maste
 Building the Desktop Application:
 All third-party dependencies are either included in the repository or installed
 via the ExternalProject_Add function provided by the CMake build system and Git. It can be
-built for Windows with MSVC, MinGW or Linux. The build script will attempt to download and 
-build all dependencies then link them statically. An advantage of this approach is the 
-ability to easily install the debug symbols across different platforms.
+built for Windows with MSVC, MinGW or Linux.
+$ cmake -G"MinGW Makefiles" && cmake --build .
+
+The build script will attempt to download and build all dependencies then link them statically.
+An advantage of this approach is the ability to specify different compiler flags and anable debug
+symbols which is done automatically unless -DCMAKE_BUILD_TYPE:STRING=Release is specified.
+Note: changing from Debug to Release after the initial build will cause problems, it is recommended
+to use separate directory for Debug and Release builds.
 The following dependencies will be fetched via Git:
 
 https://github.com/glfw/glfw.git
@@ -28,11 +33,14 @@ Exising versions of these dependencies can be specified by enabling the followin
 Running the Desktop Application:
 There are various assets found in app/src/main/assets that need to be in the current directory in
 order for the application to work correctly.
+$ cd app/src/main/assets
+$ /path/to/binary/desktop_app
 
 Building the Android Application:
 This application requires the Android NDK and relies on a slightly different CMake build script
 than the desktop application and will be used to produce shared libraries for multiple architectures.
-The CMake build is triggered by the top-level Gradle build script.
+The CMake build is triggered by the top-level Gradle build script:
+$ gradlew build
 
 License Information:
 There are source files included from the Android Open Source Project:
