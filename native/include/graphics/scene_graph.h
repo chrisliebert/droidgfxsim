@@ -86,25 +86,26 @@ void destroy(node_t* node) {
 	for (std::vector<Node*>::iterator it = root->children.begin();
 			it != root->children.end(); ++it) {
 		Node* child = *it;
-		assert(child);
-		switch (child->type) {
-		case Geometry:
-			destroy((GeometryNode*) child);
-			break;
-		case Group:
-			destroy(child);
-			break;
-		case Material:
-			destroy((MaterialNode*) child);
-			break;
-		case Switch:
-			destroy((SwitchNode*) child);
-			break;
-		case Transform:
-			destroy((TransformNode*) child);
-			break;
-		default:
-			break;
+		if(child) {
+			switch (child->type) {
+			case Geometry:
+				destroy((GeometryNode*) child);
+				break;
+			case Group:
+				destroy(child);
+				break;
+			case Material:
+				destroy((MaterialNode*) child);
+				break;
+			case Switch:
+				destroy((SwitchNode*) child);
+				break;
+			case Transform:
+				destroy((TransformNode*) child);
+				break;
+			default:
+				break;
+			}
 		}
 	}
 	root->children.clear();
