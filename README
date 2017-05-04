@@ -35,7 +35,11 @@ than the desktop application and will be used to produce shared libraries for mu
 The CMake build is triggered by the top-level Gradle build script.
 
 License Information:
-There are included files which use the Android Open Source License: gl3stub_wrapper.c, gl3stub.c.inc 
-and gl3stub.h which are part of the gles3jni Android sample and used for compatibility.
+There are source files included from the Android Open Source Project:
+gl3stub_wrapper.c
+gl3stub.c.inc
+gl3stub.h
+These files use the Apache License, Version 2.0 ( see LICENSE-2.0 )
+which were copied from the gles3jni Android sample and used for compatibility.
 There are a number of included dependencies that use various permissive open source licences such as
 stb_image.h, rapidxml.hpp, and OpenGL extension loading provided by the GLAD code generator.
