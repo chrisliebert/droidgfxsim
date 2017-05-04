@@ -39,3 +39,5 @@ There are included files which use the Android Open Source License: gl3stub_wrap
 and gl3stub.h which are part of the gles3jni Android sample and used for compatibility.
 There are a number of included dependencies that use various permissive open source licences such as
 stb_image.h, rapidxml.hpp, and OpenGL extension loading provided by the GLAD code generator.
+All sources in this directory authored by Chris Liebert are provided under the MIT license, for more 
+see LICENSE.
