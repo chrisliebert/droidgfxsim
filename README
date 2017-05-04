@@ -16,7 +16,7 @@ The build script will attempt to download and build all dependencies then link t
 An advantage of this approach is the ability to specify different compiler flags and anable debug
 symbols which is done automatically unless -DCMAKE_BUILD_TYPE:STRING=Release is specified.
 Note: changing from Debug to Release after the initial build will cause problems, it is recommended
-to use separate directory for Debug and Release builds.
+to use a separate directory when compiling Debug and Release builds.
 The following dependencies will be fetched via Git:
 
 https://github.com/glfw/glfw.git
