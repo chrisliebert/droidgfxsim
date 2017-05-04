@@ -10,11 +10,13 @@ https://github.com/googlesamples/android-ndk/tree/master/gles3jni ).
 
 Building the Desktop Application:
 All third-party dependencies are either included in the repository or installed
-via the ExternalProject_Add function provided by the CMake build system and Git. It
-can be built for Windows with MSVC, MinGW or Linux. The build script will attempts 
-to download and build all dependencies and link them statically. An advantage of 
-this approach is the ability to easily install the debug symbols across different
-platforms.
+via the ExternalProject_Add function provided by the CMake build system and Git. It 
+can be built for Windows with MSVC, MinGW or Linux. The build script will attempt 
+to download and build all dependencies then link them statically. An advantage of 
+this approach is the ability to easily install the debug symbols across different 
+platforms. The following dependencies will be fetched via Git unless the
+USING_EXISTING_<library name> cmake flag is set: GLM, Tinyobjloader, Bullet and GLFW3.
+
 
 Running the Desktop Application:
 There are various assets found in app/src/main/assets that need to be in the
