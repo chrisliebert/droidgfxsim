@@ -10,7 +10,7 @@ Building the Desktop Application:
 All third-party dependencies are either included in the repository or installed
 via the ExternalProject_Add function provided by the CMake build system and Git. It can be
 built for Windows with MSVC, MinGW or Linux.
-$ cmake -G"MinGW Makefiles" && cmake --build .
+$ cmake -G"MinGW Makefiles" /path/to/source/native && cmake --build .
 
 The build script will attempt to download and build all dependencies then link them statically.
 An advantage of this approach is the ability to specify different compiler flags and anable debug
