@@ -43,3 +43,5 @@ These files use the Apache License, Version 2.0 ( see LICENSE-2.0 )
 which were copied from the gles3jni Android sample and used for compatibility.
 There are a number of included dependencies that use various permissive open source licences such as
 stb_image.h, rapidxml.hpp, and OpenGL extension loading provided by the GLAD code generator.
+All sources in this directory authored by Chris Liebert are provided under the MIT license, for more 
+see LICENSE.
