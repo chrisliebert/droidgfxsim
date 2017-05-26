@@ -25,18 +25,24 @@ protected:
 	btCollisionDispatcher* dispatcher;
 	btBroadphaseInterface* overlapping_pair_cache;
 	btSequentialImpulseConstraintSolver* solver;
-public:
-	btDiscreteDynamicsWorld* dynamics_world;
-	btAlignedObjectArray<btCollisionShape*> collision_shapes;
-	std::map<int, PhysicsNode> physics_nodes;
 
-	void parseXMLNode(rapidxml::xml_node<>* my_xml_node, scenegraph::Node* scene_node);
     void addPhysicsNode(TransformNode* trans_node, btCollisionShape* collision_shape, float mass, float offset_x, float offset_y, float offset_z);
     void addPhysicsNode(TransformNode* trans_node, btCollisionShape* collision_shape, float mass);
     void addPhysicsBoxNode(TransformNode* trans_node, float mass, float width, float height, float length, float offset_x, float offset_y, float offset_z);
     void addPhysicsBoxNode(TransformNode* trans_node, float mass, float width, float height, float length);
-	Simulation();
+	void addPhysicsConvexHullNode(TransformNode* trans_node, float mass);
+public:
+	btDiscreteDynamicsWorld* dynamics_world;
+	btAlignedObjectArray<btCollisionShape*> collision_shapes;
+	std::map<std::string, btBoxShape*> box_shapes;
+	std::map<std::string, btConvexHullShape*> convex_hull_shapes;
+	std::map<std::string, btRigidBody*> rigid_bodies;
+	std::map<int, PhysicsNode*> collision_node_index;
+
+    Simulation();
 	~Simulation();
+	void applyForce(const std::string& rigid_body_name, const btVector3& force, const btVector3& rel_pos);
+	void parseXMLNode(rapidxml::xml_node<>* my_xml_node, scenegraph::Node* scene_node);
 	void step();
 };
 

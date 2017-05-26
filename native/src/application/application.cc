@@ -65,12 +65,8 @@ Node* Application::parseXML(rapidxml::xml_document<>& doc) {
 
 void Application::parseXMLNode(rapidxml::xml_node<>* my_xml_node,
 		scenegraph::Node* scene_node) {
-	if (!my_xml_node)
-		return;
-	char* c_name = my_xml_node->name();
-	if (0 == strlen(c_name))
-		return;
-	std::string name(c_name);
+	if (!my_xml_node) { return; }
+	std::string name(my_xml_node->name());
 	if (0 == std::string("WavefrontFile").compare(name)) {
 		for (rapidxml::xml_attribute<> *attr = my_xml_node->first_attribute();
 				attr; attr = attr->next_attribute()) {
@@ -130,11 +126,9 @@ void Application::step() {
 
 	simulation->step();
 
-	// Update scenegraph with physics simulation data
-	for (int j = simulation->dynamics_world->getNumCollisionObjects() - 1;
-			j >= 0; j--) {
-		btCollisionObject* obj =
-				simulation->dynamics_world->getCollisionObjectArray()[j];
+	btCollisionObjectArray& collision_object_array = simulation->dynamics_world->getCollisionObjectArray();
+	for (int j = simulation->dynamics_world->getNumCollisionObjects() - 1; j >= 0; j--) {
+		btCollisionObject* obj = collision_object_array[j];
 		btRigidBody* body = btRigidBody::upcast(obj);
 		btTransform trans;
 		if (body && body->getMotionState()) {
@@ -143,9 +137,8 @@ void Application::step() {
 			trans = obj->getWorldTransform();
 		}
 
-		std::map<int, PhysicsNode>::iterator itr =
-				simulation->physics_nodes.find(j);
-		if (itr != simulation->physics_nodes.end() && itr->second.mass > 0.f) {
+		std::map<int, PhysicsNode*>::iterator itr = simulation->collision_node_index.find(j);
+		if (itr != simulation->collision_node_index.end() && itr->second->mass > 0.f) {
 			btVector3 origin_bt = trans.getOrigin();
 			glm::vec3 pos((float) origin_bt.x(), (float) origin_bt.y(),
 					(float) origin_bt.z());
@@ -155,7 +148,7 @@ void Application::step() {
 			glm::quat quat(rotation_bt.w(), rotation_bt.x(), rotation_bt.y(),
 					rotation_bt.z());
 			glm::mat4 rotation = glm::toMat4(quat);
-			itr->second.transform_node->matrix = pos_mat * rotation;
+			itr->second->transform_node->matrix = pos_mat * rotation;
 		}
 	}
 }

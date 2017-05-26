@@ -213,34 +213,31 @@ bool WavefrontSceneGraphFactory::addWavefront(const char* file_name, glm::mat4 m
 			for (size_t i = 0; i < 3; i++) {
 				diffuse[i] = material_list[current_material_id].diffuse[i];
 			}
+
 			float tc[3][2];
-			if (attrib.texcoords.size() > 0) {
-				if (attrib.texcoords.size() > 2 * idx0.texcoord_index + 1) {
-					tc[0][0] = attrib.texcoords[2 * idx0.texcoord_index];
-					tc[0][1] = 1.0f
-							- attrib.texcoords[2 * idx0.texcoord_index + 1];
-				} else {
-					tc[0][0] = 0.f;
-					tc[0][1] = 0.f;
-				}
-				if (attrib.texcoords.size() > 2 * idx1.texcoord_index + 1) {
-					tc[1][0] = attrib.texcoords[2 * idx1.texcoord_index];
-					tc[1][1] = 1.0f
-							- attrib.texcoords[2 * idx1.texcoord_index + 1];
-				} else {
-					tc[1][0] = 0.f;
-					tc[1][1] = 0.f;
-				}
-				if (attrib.texcoords.size() > 2 * idx2.texcoord_index + 1) {
-					tc[2][0] = attrib.texcoords[2 * idx2.texcoord_index];
-					tc[2][1] = 1.0f
-							- attrib.texcoords[2 * idx2.texcoord_index + 1];
-				} else {
-					tc[2][0] = 0.f;
-					tc[2][1] = 0.f;
-				}
+			if (attrib.texcoords.size() > 2 * idx0.texcoord_index + 1) {
+				tc[0][0] = attrib.texcoords[2 * idx0.texcoord_index];
+				tc[0][1] = 1.0f
+						- attrib.texcoords[2 * idx0.texcoord_index + 1];
 			} else {
-				LOGI("Texture coordinates are not defined");
+				tc[0][0] = 0.f;
+				tc[0][1] = 0.f;
+			}
+			if (attrib.texcoords.size() > 2 * idx1.texcoord_index + 1) {
+				tc[1][0] = attrib.texcoords[2 * idx1.texcoord_index];
+				tc[1][1] = 1.0f
+						- attrib.texcoords[2 * idx1.texcoord_index + 1];
+			} else {
+				tc[1][0] = 0.f;
+				tc[1][1] = 0.f;
+			}
+			if (attrib.texcoords.size() > 2 * idx2.texcoord_index + 1) {
+				tc[2][0] = attrib.texcoords[2 * idx2.texcoord_index];
+				tc[2][1] = 1.0f
+						- attrib.texcoords[2 * idx2.texcoord_index + 1];
+			} else {
+				tc[2][0] = 0.f;
+				tc[2][1] = 0.f;
 			}
 
 			float v[3][3];

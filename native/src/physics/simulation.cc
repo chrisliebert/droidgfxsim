@@ -19,42 +19,37 @@ Simulation::Simulation() {
 }
 
 Simulation::~Simulation() {
-	//cleanup in the reverse order of creation/initialization
-	//remove the rigid bodies from the dynamics world and delete them
-	for (int i = dynamics_world->getNumCollisionObjects() - 1; i >= 0; i--) {
-		btCollisionObject* obj = dynamics_world->getCollisionObjectArray()[i];
-		btRigidBody* body = btRigidBody::upcast(obj);
-		if (body && body->getMotionState()) {
-			delete body->getMotionState();
+
+
+	for(std::map<std::string, btRigidBody*>::iterator it = rigid_bodies.begin(); it != rigid_bodies.end(); ++it) {
+		btRigidBody* rb = it->second;
+		if(rb) {
+			delete rb;
+			rb = 0;
 		}
-		dynamics_world->removeCollisionObject(obj);
-		delete obj;
 	}
 
-	//delete collision shapes
-	for (int j = 0; j < collision_shapes.size(); j++) {
-		btCollisionShape* shape = collision_shapes[j];
-		collision_shapes[j] = 0;
-		delete shape;
+	for(std::map<std::string, btBoxShape*>::iterator it = box_shapes.begin(); it != box_shapes.end(); ++it) {
+		btBoxShape* box = it->second;
+		if(box) {
+			delete box;
+			box = 0;
+		}
 	}
 
-	//delete dynamics world
+	for(std::map<std::string, btConvexHullShape*>::iterator it = convex_hull_shapes.begin(); it != convex_hull_shapes.end(); ++it) {
+		btConvexHullShape* chs = it->second;
+		if(chs) {
+			delete chs;
+			chs = 0;
+		}
+	}
+
 	delete dynamics_world;
-
-	//delete solver
 	delete solver;
-
-	//delete broadphase
 	delete overlapping_pair_cache;
-
-	//delete dispatcher
 	delete dispatcher;
-
 	delete collision_configuration;
-
-	//next line is optional: it will be cleared by the destructor when the array goes out of scope
-	collision_shapes.clear();
-	physics_nodes.clear();
 }
 
 void Simulation::parseXMLNode(rapidxml::xml_node<>* my_xml_node, scenegraph::Node* scenegraph_root) {
@@ -88,8 +83,7 @@ void Simulation::parseXMLNode(rapidxml::xml_node<>* my_xml_node, scenegraph::Nod
 					for (rapidxml::xml_attribute<> *col_attr =
 							child->first_attribute(); col_attr; col_attr =
 							col_attr->next_attribute()) {
-						if (0
-								== std::string("width").compare(
+						if (0 == std::string("width").compare(
 										col_attr->name())) {
 							width = atof(col_attr->value());
 						} else if (0
@@ -120,13 +114,19 @@ void Simulation::parseXMLNode(rapidxml::xml_node<>* my_xml_node, scenegraph::Nod
 								length, offset_x, offset_y, offset_z);
 						break;
 					} else {
-						LOGE(
-								"%s was referenced in configuration, but not loaded",
-								object_name.c_str());
+						LOGI("%s was referenced in configuration, but not loaded", object_name.c_str());
 					}
+				} else if (0 == std::string("ConvexHull").compare(child->value())) {
+					TransformNode* trans_node = scenegraph::find_transform_node(object_name, scenegraph_root);
+					if (trans_node) {
+						addPhysicsConvexHullNode(trans_node, mass);
+						break;
+					} else {
+						LOGI("%s was referenced in configuration, but not loaded",	object_name.c_str());
+					}
+
 				} else {
-					LOGE("WARNING, only box collision shape is implemented %s.",
-							child->value());
+					LOGI("WARNING, only Box and ConvexHull collision shapes are implemented %s.", child->value());
 				}
 			}
 		}
@@ -169,15 +169,17 @@ void Simulation::addPhysicsNode(TransformNode* trans_node,
 			collision_shape, local_inertia);
 	btRigidBody* body = new btRigidBody(rb_info);
 	assert(body);
+	rigid_bodies.insert(std::make_pair(trans_node->name, body));
 	dynamics_world->addRigidBody(body);
 
-	PhysicsNode physics_node;
-	physics_node.collision_shape = collision_shape;
-	physics_node.body = body;
-	physics_node.transform_node = trans_node;
-	physics_node.mass = btScalar(mass);
-	int index = (int) (collision_shapes.size() - 1);
-	physics_nodes[index] = physics_node;
+	PhysicsNode* physics_node = new PhysicsNode;
+	assert(physics_node);
+	physics_node->collision_shape = collision_shape;
+	physics_node->body = body;
+	physics_node->transform_node = trans_node;
+	physics_node->mass = btScalar(mass);
+	int index = dynamics_world->getNumCollisionObjects() - 1;
+	collision_node_index.insert(std::make_pair(index, physics_node));
 }
 
 void Simulation::addPhysicsNode(TransformNode* trans_node,
@@ -188,9 +190,9 @@ void Simulation::addPhysicsNode(TransformNode* trans_node,
 void Simulation::addPhysicsBoxNode(TransformNode* trans_node, float mass,
 		float width, float height, float length, float offset_x, float offset_y,
 		float offset_z) {
-	btCollisionShape* collision_shape = new btBoxShape(
-			btVector3(width, height, length));
+	btBoxShape* collision_shape = new btBoxShape(btVector3(width, height, length));
 	assert(collision_shape);
+	box_shapes.insert(std::make_pair(trans_node->name, collision_shape));
 	addPhysicsNode(trans_node, collision_shape, mass, offset_x, offset_y,
 			offset_z);
 }
@@ -200,6 +202,44 @@ void Simulation::addPhysicsBoxNode(TransformNode* trans_node, float mass,
 	addPhysicsBoxNode(trans_node, mass, width, height, length, 0.f, 0.f, 0.f);
 }
 
+void populateConvexHullShapeFromNode(scenegraph::Node* root, btConvexHullShape* convex_hull, glm::mat4& matrix) {
+	if(root->type == scenegraph::NodeType::Geometry) {
+		scenegraph::GeometryNode* geometry_node = (scenegraph::GeometryNode*) root;
+		for(std::vector<scenegraph::Vertex>::iterator it = geometry_node->vertex_data.begin(); it != geometry_node->vertex_data.end(); ++it) {
+			scenegraph::Vertex* v = &*it;
+			glm::vec4 v_trans = glm::vec4(v->position[0], v->position[1], v->position[2], 1.0f) * matrix;
+			convex_hull->addPoint(btVector3(v_trans.x, v_trans.y, v_trans.z));
+		}
+	} else if(root->type == scenegraph::NodeType::Transform) {
+		scenegraph::TransformNode* transform_node = (scenegraph::TransformNode*) root;
+		matrix *= transform_node->matrix;
+	} else {
+		LOGE("Node type not implemented for trimesh %s", root->name.c_str());
+	}
+	for(std::vector<scenegraph::Node*>::iterator it = root->children.begin(); it != root->children.end(); ++it) {
+		scenegraph::Node* child = *it;
+		populateConvexHullShapeFromNode(child, convex_hull, matrix);
+	}
+}
+
+void Simulation::addPhysicsConvexHullNode(TransformNode* trans_node, float mass) {
+	btConvexHullShape * convex_hull_shape = new btConvexHullShape();
+	assert(convex_hull_shape);
+	convex_hull_shapes.insert(std::make_pair(trans_node->name, convex_hull_shape));
+	glm::mat4 identity(1.f);
+	populateConvexHullShapeFromNode(trans_node, convex_hull_shape, identity);
+	addPhysicsNode(trans_node, convex_hull_shape, mass);
+}
+
 void Simulation::step() {
 	dynamics_world->stepSimulation(1.f / 60.f, 10);
+}
+
+void Simulation::applyForce(const std::string& rigid_body_name, const btVector3& force, const btVector3& rel_pos) {
+	std::map<std::string, btRigidBody*>::iterator itr = rigid_bodies.find(rigid_body_name);
+	if(itr != rigid_bodies.end()) {
+		itr->second->applyForce(force, rel_pos);
+	} else {
+		LOGI("Unable to find rigid body called %s, can not apply force", rigid_body_name.c_str());
+	}
 }
