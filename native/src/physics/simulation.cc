@@ -19,30 +19,24 @@ Simulation::Simulation() {
 }
 
 Simulation::~Simulation() {
-
-
-	for(std::map<std::string, btRigidBody*>::iterator it = rigid_bodies.begin(); it != rigid_bodies.end(); ++it) {
-		btRigidBody* rb = it->second;
-		if(rb) {
-			delete rb;
-			rb = 0;
+	rigid_bodies.clear();
+	box_shapes.clear();
+	convex_hull_shapes.clear();
+	for (int i = dynamics_world->getNumCollisionObjects() - 1; i >= 0; i--) {
+		btCollisionObject* obj = dynamics_world->getCollisionObjectArray()[i];
+		btRigidBody* body = btRigidBody::upcast(obj);
+		if (body && body->getMotionState()) {
+			delete body->getMotionState();
 		}
+		dynamics_world->removeCollisionObject(obj);
+		delete obj;
 	}
 
-	for(std::map<std::string, btBoxShape*>::iterator it = box_shapes.begin(); it != box_shapes.end(); ++it) {
-		btBoxShape* box = it->second;
-		if(box) {
-			delete box;
-			box = 0;
-		}
-	}
-
-	for(std::map<std::string, btConvexHullShape*>::iterator it = convex_hull_shapes.begin(); it != convex_hull_shapes.end(); ++it) {
-		btConvexHullShape* chs = it->second;
-		if(chs) {
-			delete chs;
-			chs = 0;
-		}
+	//delete collision shapes
+	for (int j = 0; j < collision_shapes.size(); j++) {
+		btCollisionShape* shape = collision_shapes[j];
+		collision_shapes[j] = 0;
+		delete shape;
 	}
 
 	delete dynamics_world;
