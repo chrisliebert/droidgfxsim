@@ -3,7 +3,6 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <algorithm>
-#include <iostream>
 
 #define DESKTOP_APP 1
 #include "application/application.h"
@@ -54,7 +53,7 @@ void pre_gl_call(const char *name, void *funcptr, int len_args, ...) {
 #endif
 
 #ifndef RENDERER
-#define RENDERER GL3SceneGraphRenderer
+#define RENDERER GL2SceneGraphRenderer
 #endif
 
 int width = 1200;
@@ -67,9 +66,9 @@ void clickFunc(GLFWwindow* window, int button, int action, int mods) {
 	(void) mods;
 	if (button == GLFW_MOUSE_BUTTON_LEFT) {
 		if (action == GLFW_PRESS) {
-			std::cout << "Left Mouse Press" << std::endl;
+			LOGI("Left Mouse Press");
 		} else if (action == GLFW_RELEASE) {
-			std::cout << "Left Mouse Release" << std::endl;
+			LOGI("Left Mouse Release");
 		}
 	}
 }
@@ -114,6 +113,7 @@ void keyboardFunc(GLFWwindow* window, int key, int scancode, int action,
 				application->camera->update();
 			}
 			if (key == GLFW_KEY_ENTER) {
+			    // Restart the simulation
 				if(application) { delete application; }
 				application = 0;
 			}
@@ -165,7 +165,7 @@ int main(int argc, char** argv) {
 	glfwSetCursorPosCallback(window, motionFunc);
 
 	if (!gladLoadGL()) {
-		std::cerr << "Something went wrong initializing OpenGL!" << std::endl;
+		LOGE("Something went wrong initializing OpenGL!");
 	}
 
 #ifdef GLAD_DEBUG
@@ -248,5 +248,6 @@ int main(int argc, char** argv) {
 	}
 
 	glfwDestroyWindow(window);
+	glfwTerminate();
 	return 0;
 }
