@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>droidgfxsim</title>
+</head>
+<body>
+	<h2>droidgfxsim</h2>
+	<p>A graphical 3D physics simulator supporting Android and desktop builds written in C++.</p>
+	<img src="droidgfxsim.gif" />
+	<p>This Android app uses a native OpenGL ES 2/3 compatable render system along with
+the Bullet Physics SDK. It provides an XML-defined graphical 3D simulation and can be built as a standalone desktop application.
+The Android portion of application is derived from the <a href="https://github.com/googlesamples/android-ndk/tree/master/gles3jni">gles3jni Android SDK sample</a>.</p>
+
+<h3>Building the Desktop Application:</h3>
+<p>All third-party dependencies are either included in the repository or installed
+via the ExternalProject_Add function provided by the CMake build system and Git. It can be
+built for Windows with MSVC, MinGW or Linux.</p>
+<code><pre>$ cmake -G"MinGW Makefiles" /path/to/source/native && cmake --build .</pre></code>
+
+<p>The build script will attempt to download and build all dependencies then link them statically.
+An advantage of this approach is the ability to specify different compiler flags and anable debug
+symbols which is done automatically unless <code>-DCMAKE_BUILD_TYPE:STRING=Release</code> is specified.
+Note: changing from Debug to Release after the initial build will cause problems, it is recommended
+to use a separate directory when compiling Debug and Release builds.
+The following dependencies will be fetched via Git:</p>
+
+<ul>
+	<li><a href="https://github.com/glfw/glfw.git">GLFW</a></li>
+	<li><a href="https://github.com/g-truc/glm.git">GLM</a></li>
+	<li><a href="https://github.com/syoyo/tinyobjloader.git">tinyobjloader</a></li>
+	<li><a href="https://github.com/bulletphysics/bullet3.git">Bullet Physics</a></li>
+</ul>
+
+<p>Exising versions of these dependencies can be specified by enabling the following CMake parameters:
+<code><pre>-DUSE_EXISTING_GLFW3:BOOL=ON
+-DUSE_EXISTING_GLM:BOOL=ON
+-DUSE_EXISTING_BULLET:BOOL=ON
+-DUSE_EXISTING_TINYOBJLOADER:BOOL=ON</pre></code></p>
+
+<h3>Running the Desktop Application</h3>
+<p>There are various assets found in app/src/main/assets that need to be in the current directory in
+order for the application to work correctly.</p>
+<code><pre>$ cd app/src/main/assets
+$ /path/to/binary/desktop_app</pre></code>
+
+<h3>Building the Android Application</h3>
+<p>This application requires the Android NDK and relies on a slightly different CMake build script
+than the desktop application and will be used to produce shared libraries for multiple architectures.
+The CMake build is triggered by the top-level Gradle build script:</p>
+<code><pre>$ gradlew build</pre></code>
+
+<h3>Configuring the Simulation Data</h3>
+<p>The droidgfxsim simulation can be modified by editing <code>data.xml</code> from the assets directory. Wavefront .obj files can be specified with the WavefrontFile tag, and boxes and convex hull objects can be specified. <b>Note:</b> The Wavefront files must specify objects with names and all textures defined in the associated .mtl files must have relative paths. Blender can be used to export .obj files by choosing the "Objects as OBJ Objects" checkbox and selecting "Strip Path" for "Path Mode" when exporting to Wavefront .obj.</p>
+<h4>Example <code>data.xml</code></h4>
+<code><pre>&lt;?xml version=&quot;1.0&quot; ?&gt;
+&lt;SimulationConfiguration&gt;
+	&lt;WavefrontFile filename=&quot;monkey.obj&quot;&gt;
+		&lt;PhysicsNode name=&quot;Suzanne&quot; mass=&quot;0.1&quot;&gt;
+			&lt;CollisionShape&gt;ConvexHull&lt;/CollisionShape&gt;
+		&lt;/PhysicsNode&gt;
+	&lt;/WavefrontFile&gt;
+	&lt;WavefrontFile filename=&quot;cylinders.obj&quot;&gt;
+		&lt;PhysicsNode name=&quot;Cylinder&quot; mass=&quot;100.0&quot;&gt;
+			&lt;CollisionShape&gt;ConvexHull&lt;/CollisionShape&gt;
+		&lt;/PhysicsNode&gt;
+		&lt;PhysicsNode name=&quot;Cone&quot; mass=&quot;100.0&quot;&gt;
+			&lt;CollisionShape&gt;ConvexHull&lt;/CollisionShape&gt;
+		&lt;/PhysicsNode&gt;
+		&lt;PhysicsNode name=&quot;Cube&quot; mass=&quot;100.0&quot;&gt;
+			&lt;CollisionShape&gt;ConvexHull&lt;/CollisionShape&gt;
+		&lt;/PhysicsNode&gt;
+	&lt;/WavefrontFile&gt;
+	&lt;WavefrontFile filename=&quot;boxes_and_rocks.obj&quot;&gt;
+		&lt;PhysicsNode name=&quot;Floor&quot; mass=&quot;0.0&quot;&gt;
+			&lt;CollisionShape&gt;ConvexHull&lt;/CollisionShape&gt;
+		&lt;/PhysicsNode&gt;
+			&lt;PhysicsNode name=&quot;Cube.000&quot; mass=&quot;1&quot;&gt;
+			&lt;CollisionShape width=&quot;1&quot; height=&quot;1&quot; length=&quot;1&quot;
+				offset_x=&quot;0&quot; offset_y=&quot;0&quot; offset_z=&quot;0&quot;&gt;Box&lt;/CollisionShape&gt;
+		&lt;/PhysicsNode&gt;
+		&lt;PhysicsNode name=&quot;Cube.001&quot; mass=&quot;1&quot;&gt;
+			&lt;CollisionShape width=&quot;1&quot; height=&quot;1&quot; length=&quot;1&quot;
+				offset_x=&quot;0&quot; offset_y=&quot;0&quot; offset_z=&quot;0&quot;&gt;Box&lt;/CollisionShape&gt;
+		&lt;/PhysicsNode&gt;
+		...
+		&lt;PhysicsNode name=&quot;Rock.000&quot; mass=&quot;800&quot;&gt;
+			&lt;CollisionShape&gt;ConvexHull&lt;/CollisionShape&gt;
+		&lt;/PhysicsNode&gt;
+		&lt;PhysicsNode name=&quot;Rock.001&quot; mass=&quot;50&quot;&gt;
+			&lt;CollisionShape&gt;ConvexHull&lt;/CollisionShape&gt;
+		&lt;/PhysicsNode&gt;
+		...
+	&lt;/WavefrontFile&gt;
+&lt;/SimulationConfiguration&gt;
+</pre></code>
+
+<h3>License Information</h3>
+<p>Source files included from the Android Open Source Project are included:</p>
+<ul>
+	<li>gl3stub_wrapper.c</li>
+	<li>gl3stub.c.inc</li>
+	<li>gl3stub.h</li>
+</ul>
+<p>These files use the Apache License, Version 2.0 ( see LICENSE-2.0 )
+which were copied from the gles3jni Android sample and used for compatibility.
+There are a number of included dependencies that use various permissive open source licences such as
+stb_image.h, rapidxml.hpp, and OpenGL extension loading provided by the GLAD code generator.
+All sources in this directory authored by Chris Liebert are provided under the MIT license, for more 
+see LICENSE.</p>
+</body>
+</html>
