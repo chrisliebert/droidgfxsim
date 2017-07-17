@@ -45,30 +45,29 @@ IF(NOT USE_EXISTING_GLM)
       GIT_REPOSITORY https://github.com/g-truc/glm.git
       CMAKE_GENERATOR "${CMAKE_GENERATOR}"
       CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:STRING=${GLM_PREFIX} -DCMAKE_TOOLCHAIN_FILE:STRING=${CMAKE_TOOLCHAIN_FILE} -DCMAKE_C_COMPILER:STRING=${CMAKE_C_COMPILER} -DCMAKE_CXX_COMPILER:STRING=${CMAKE_CXX_COMPILER} -DCMAKE_MAKE_PROGRAM:STRING=${CMAKE_MAKE_PROGRAM} -DCMAKE_BUILD_TYPE:STRING=${CMAKE_BUILD_TYPE}
-      #CONFIGURE_COMMAND ""
-      #BUILD_COMMAND ""
-      #INSTALL_COMMAND ""
+      CONFIGURE_COMMAND ""
+      BUILD_COMMAND ""
+      INSTALL_COMMAND ""
       UPDATE_COMMAND "" #disable updating git repo every build
       LOG_DOWNLOAD ON
     )
-    ExternalProject_Get_Property(glm_dependency install_dir)
-    SET(GLM_INCLUDE_DIRS ${install_dir}/include)
+    ExternalProject_Get_Property(glm_dependency source_dir)
+    SET(GLM_INCLUDE_DIRS ${source_dir})
+    
     ADD_CUSTOM_COMMAND(
       OUTPUT
-        ${install_dir}/include/glm/glm.hpp
+        ${source_dir}/glm/glm.hpp
         ${GLM_PREFIX}/src/glm_dependency-stamp/glm_dependency-gitinfo.txt
         ${GLM_PREFIX}/tmp/glm_dependency-cfgcmd.txt
       COMMAND
     )
     
     ADD_CUSTOM_TARGET(glmProvider DEPENDS
-        ${install_dir}/include/glm/glm.hpp
+        ${source_dir}/glm/glm.hpp
         ${GLM_PREFIX}/src/glm_dependency-stamp/glm_dependency-gitinfo.txt
         ${GLM_PREFIX}/tmp/glm_dependency-cfgcmd.txt
     )
-    SET(GLM_FOUND TRUE)
-#ELSE(NOT USE_EXISTING_GLM)
-    #FIND_PACKAGE(glm REQUIRED)
+    SET(GLM_FOUND ON)
 ENDIF(NOT USE_EXISTING_GLM)
 
 IF(NOT USE_EXISTING_TINYOBJLOADER)
@@ -76,7 +75,6 @@ IF(NOT USE_EXISTING_TINYOBJLOADER)
     SET(TINYOBJLOADER_PREFIX ${CMAKE_BINARY_DIR}/tinyobjloader)
     MESSAGE(" TINYOBJLOADER not found, downloading via GIT")
     INCLUDE(ExternalProject)
-    #SET(GENERATOR_ARG -G\"${CMAKE_GENERATOR}\")
     ExternalProject_Add(
       tinyobjloader_dependency
       PREFIX ${TINYOBJLOADER_PREFIX}
@@ -106,8 +104,6 @@ IF(NOT USE_EXISTING_TINYOBJLOADER)
         ${TINYOBJLOADER_PREFIX}/src/tinyobjloader_dependency-stamp/tinyobjloader_dependency-gitinfo.txt 
         ${TINYOBJLOADER_PREFIX}/tmp/tinyobjloader_dependency-cfgcmd.txt
     )
-#ELSE(NOT USE_EXISTING_TINYOBJLOADER)
-    #FIND_PACKAGE(tinyobjloader REQUIRED)
 ENDIF(NOT USE_EXISTING_TINYOBJLOADER)
 
 IF(NOT USE_EXISTING_BULLET AND NOT BULLET_FOUND)
@@ -184,16 +180,12 @@ FILE(GLOB APPLICATION_LIBRARY_SOURCE_FILES
     "${SRC_LOCATION}/src/physics/*.cc"
 )
 
-include_directories(${SRC_LOCATION}/include/)
-include_directories(${SRC_LOCATION}/include/common/)
-include_directories(${SRC_LOCATION}/include/graphics/)
-include_directories(${SRC_LOCATION}/include/application/)
-include_directories(${SRC_LOCATION}/include/android/)
-include_directories(${SRC_LOCATION}/include/physics/)
-
-INCLUDE_DIRECTORIES(${GLM_INCLUDE_DIRS})
-INCLUDE_DIRECTORIES(${TINYOBJLOADER_INCLUDE_DIRS})
-INCLUDE_DIRECTORIES(${BULLET_INCLUDE_DIRS})
+INCLUDE_DIRECTORIES(${SRC_LOCATION}/include/)
+INCLUDE_DIRECTORIES(${SRC_LOCATION}/include/common/)
+INCLUDE_DIRECTORIES(${SRC_LOCATION}/include/graphics/)
+INCLUDE_DIRECTORIES(${SRC_LOCATION}/include/application/)
+INCLUDE_DIRECTORIES(${SRC_LOCATION}/include/android/)
+INCLUDE_DIRECTORIES(${SRC_LOCATION}/include/physics/)
 
 if(${ANDROID_PLATFORM_LEVEL} LESS 11)
   message(ERROR "OpenGL 2 is not supported before API level 11 (currently using ${ANDROID_PLATFORM_LEVEL}).")
@@ -216,15 +208,11 @@ add_library(glappjni SHARED
 
 SET_TARGET_PROPERTIES(glappjni PROPERTIES LINKER_LANGUAGE CXX)
 
-#IF(NOT USE_EXISTING_GLM)
-#	ADD_DEPENDENCIES(glappjni glm_dependency)
-#ENDIF(NOT USE_EXISTING_GLM)
-
-#IF(NOT USE_EXISTING_TINYOBJLOADER)
-#	ADD_DEPENDENCIES(glappjni tinyobjloader_dependency)
-#ENDIF(NOT USE_EXISTING_TINYOBJLOADER)
-
 ADD_DEPENDENCIES(glappjni glm_dependency tinyobjloader_dependency bullet_dependency glmProvider tinyobjloaderProvider bulletProvider)
+
+INCLUDE_DIRECTORIES(${GLM_INCLUDE_DIRS})
+INCLUDE_DIRECTORIES(${TINYOBJLOADER_INCLUDE_DIRS})
+INCLUDE_DIRECTORIES(${BULLET_INCLUDE_DIRS})
 
 # add lib dependencies
 target_link_libraries(glappjni
