@@ -12,6 +12,7 @@ protected:
 	GLint uniform_transform_buffer_block_size;
 	std::map<GeometryNode*, GLuint> vaos;
 	std::map<GeometryNode*, GLuint> vbos;
+	std::map<GeometryNode*, GLuint> ibos;
 	std::map<std::string, GLuint> texture_ids;
 	GLuint matrix_uniform_location;
 

@@ -9,6 +9,7 @@ class GL2SceneGraphRenderer {
 protected:
 	GLuint shader_program;
 	std::map<GeometryNode*, GLuint> vbos;
+	std::map<GeometryNode*, GLuint> ibos;
 	std::map<std::string, GLuint> texture_ids;
 	GLuint matrix_uniform_location;
 

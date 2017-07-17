@@ -5,6 +5,7 @@
 
 #include <fstream>
 #include <iostream>
+#include <functional>
 #include <map>
 #include <sstream>
 #include <string>
@@ -27,6 +28,8 @@ typedef struct Vertex {
 	float position[3];
 	float normal[3];
 	float texcoord[2];
+
+	bool operator==(const Vertex& other) const;
 } Vertex;
 
 typedef enum NodeType {
@@ -53,6 +56,7 @@ public:
 	float center[3];
 	float radius;
 	std::vector<Vertex> vertex_data;
+	std::vector<GLuint> index_data;
 };
 
 class MaterialNode: public Node {
@@ -114,4 +118,28 @@ void destroy(node_t* node) {
 }
 
 } //namespace scenegraph
+
+// Hash function for Vertex
+namespace std {
+    template<> struct hash<scenegraph::Vertex> {
+        size_t operator()(scenegraph::Vertex const& vertex) const {
+            size_t h;
+            for(int i=0; i<3; i++) {
+            	if(i == 0) {
+            		h = hash<float>()(vertex.position[0]);
+            		h = h ^ (hash<float>()(vertex.normal[0]) << 1);
+            	} else {
+            		h = h ^ (hash<float>()(vertex.position[i]) << 1);
+            		h = h ^ (hash<float>()(vertex.normal[i]) << 1);
+            	}
+
+            	if(i != 2) {
+            		h = h ^ (hash<float>()(vertex.texcoord[i]) << 1);
+            	}
+            }
+            return h;
+        }
+    };
+}
+
 #endif //_SCENE_GRAPH_H_

@@ -65,7 +65,7 @@ void Simulation::parseXMLNode(rapidxml::xml_node<>* my_xml_node, scenegraph::Nod
 		for (rapidxml::xml_attribute<> *attr = my_xml_node->first_attribute();
 				attr; attr = attr->next_attribute()) {
 			if (0 == std::string("mass").compare(attr->name())) {
-				mass = atof(attr->value());
+				mass = (float) atof(attr->value());
 			} else if (0 == std::string("name").compare(attr->name())) {
 				object_name = std::string(attr->value());
 			}
@@ -79,27 +79,27 @@ void Simulation::parseXMLNode(rapidxml::xml_node<>* my_xml_node, scenegraph::Nod
 							col_attr->next_attribute()) {
 						if (0 == std::string("width").compare(
 										col_attr->name())) {
-							width = atof(col_attr->value());
+							width = (float) atof(col_attr->value());
 						} else if (0
 								== std::string("height").compare(
 										col_attr->name())) {
-							height = atof(col_attr->value());
+							height = (float) atof(col_attr->value());
 						} else if (0
 								== std::string("length").compare(
 										col_attr->name())) {
-							length = atof(col_attr->value());
+							length = (float) atof(col_attr->value());
 						} else if (0
 								== std::string("offset_x").compare(
 										col_attr->name())) {
-							offset_x = atof(col_attr->value());
+							offset_x = (float) atof(col_attr->value());
 						} else if (0
 								== std::string("offset_y").compare(
 										col_attr->name())) {
-							offset_y = atof(col_attr->value());
+							offset_y = (float) atof(col_attr->value());
 						} else if (0
 								== std::string("offset_z").compare(
 										col_attr->name())) {
-							offset_z = atof(col_attr->value());
+							offset_z = (float) atof(col_attr->value());
 						}
 					}
 					TransformNode* trans_node = scenegraph::find_transform_node(object_name, scenegraph_root);
@@ -199,10 +199,17 @@ void Simulation::addPhysicsBoxNode(TransformNode* trans_node, float mass,
 void populateConvexHullShapeFromNode(scenegraph::Node* root, btConvexHullShape* convex_hull, glm::mat4& matrix) {
 	if(root->type == scenegraph::NodeType::Geometry) {
 		scenegraph::GeometryNode* geometry_node = (scenegraph::GeometryNode*) root;
-		for(std::vector<scenegraph::Vertex>::iterator it = geometry_node->vertex_data.begin(); it != geometry_node->vertex_data.end(); ++it) {
-			scenegraph::Vertex* v = &*it;
-			glm::vec4 v_trans = glm::vec4(v->position[0], v->position[1], v->position[2], 1.0f) * matrix;
-			convex_hull->addPoint(btVector3(v_trans.x, v_trans.y, v_trans.z));
+		for(std::vector<GLuint>::iterator index_it = geometry_node->index_data.begin(); index_it != geometry_node->index_data.end(); ++index_it) {
+			GLuint i = *index_it;
+			scenegraph::Vertex* v = &geometry_node->vertex_data[i];
+			glm::vec4 v_trans = glm::vec4(
+					v->position[0],
+					v->position[1],
+					v->position[2],
+					1.0f) * matrix;
+			convex_hull->addPoint(
+				btVector3(v_trans.x, v_trans.y, v_trans.z)
+			);
 		}
 	} else if(root->type == scenegraph::NodeType::Transform) {
 		scenegraph::TransformNode* transform_node = (scenegraph::TransformNode*) root;

@@ -6,6 +6,7 @@
 #include <fstream>
 #include <iostream>
 #include <map>
+#include <unordered_map>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -50,6 +51,7 @@ public:
 	void addTexture(const char*);
 	bool addWavefront(const char* wavefront_filename, glm::mat4, AssetManager* asset_manager);
 	Node* build();
+	std::set<std::string> wavefront_files;
 	std::set<std::string> textures;
 private:
 	unsigned start_position;

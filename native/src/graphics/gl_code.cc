@@ -35,7 +35,7 @@ bool Image::loadAsset(const char* filename, AssetManager* manager) {
     size_t file_length = 0;
     unsigned char *image_file_bytes = manager->loadBinaryFile(filename, file_length);
     if(file_length == 0) { return false; }
-    data = stbi_load_from_memory(image_file_bytes, file_length * sizeof(unsigned char),
+    data = stbi_load_from_memory(image_file_bytes, (GLsizei)(file_length * sizeof(unsigned char)),
                                         &w, &h, &comp, STBI_default);
     delete [] image_file_bytes;
     if (data == 0) {

@@ -18,7 +18,6 @@ WavefrontSceneGraphFactory::~WavefrontSceneGraphFactory() {
 	textures.clear();
 }
 
-
 // Used to check file extension
 bool hasEnding(std::string const &fullString, std::string const &ending) {
 	if (fullString.length() >= ending.length()) {
@@ -133,7 +132,17 @@ std::vector<std::string> getMTLFilenames(const std::string& obj_contents) {
 }
 
 bool WavefrontSceneGraphFactory::addWavefront(const char* file_name, glm::mat4 matrix, AssetManager* asset_manager) {
+	// Prevent file from being loaded more than once.
+	std::string filename_str(file_name);
+	if(wavefront_files.find(filename_str) == wavefront_files.end()) {
+		wavefront_files.insert(filename_str);
+	} else {
+		LOGI("File %s was already loaded", file_name);
+		return true;
+	}
+
 	size_t initial_num_materials = this->materials.size();
+	size_t total_duplicates_removed = 0;
 	tinyobj::attrib_t attrib;
 	std::vector<tinyobj::shape_t> shapes;
 	std::vector<tinyobj::material_t> material_list;
@@ -188,6 +197,7 @@ bool WavefrontSceneGraphFactory::addWavefront(const char* file_name, glm::mat4 m
 	}
 
 	// Load data
+	std::vector<Vertex> vertices;
 	for (size_t s = 0; s < shapes.size(); s++) {
 		GeometryNode* geom_node = new GeometryNode();
 		assert(geom_node);
@@ -293,31 +303,29 @@ bool WavefrontSceneGraphFactory::addWavefront(const char* file_name, glm::mat4 m
 				geom_node->center[1] += vert.position[1];
 				geom_node->center[2] += vert.position[2];
 
-				geom_node->vertex_data.push_back(vert);
-				//indices.push_back((unsigned) indices.size());
+				vertices.push_back(vert);
 			}
 		}
 
-		if (geom_node->vertex_data.size() == 0) {
+		if (vertices.size() == 0) {
 			// Ignore scene nodes that don't have geometry
 			LOGI(
 					"Warning, scene node %s does not containing geometry, ommiting.",
-					shapes[s].name.c_str());
+					shapes[s].name.c_str()
+			);
 			continue;
 		}
 
 		geom_node->name = shapes[s].name;
-
-		double num_vertices = (double) geom_node->vertex_data.size();
+		double num_vertices = (double) vertices.size();
 		// 2nd stage of mean calculation
 
-		geom_node->center[0] = geom_node->center[0] / num_vertices;
-		geom_node->center[1] = geom_node->center[1] / num_vertices;
-		geom_node->center[2] = geom_node->center[2] / num_vertices;
+		geom_node->center[0] = (float)(geom_node->center[0] / num_vertices);
+		geom_node->center[1] = (float)(geom_node->center[1] / num_vertices);
+		geom_node->center[2] = (float)(geom_node->center[2] / num_vertices);
 
 		// Now that the center is calculated, it is subtracted from the individual vertices.
-		for (auto it = geom_node->vertex_data.begin();
-				it != geom_node->vertex_data.end(); ++it) {
+		for (std::vector<Vertex>::iterator it = vertices.begin(); it != vertices.end(); ++it) {
 			Vertex* vert = &*it;
 			for (int xyz = 0; xyz < 3; xyz++) {
 				vert->position[xyz] -= geom_node->center[xyz];
@@ -327,10 +335,10 @@ bool WavefrontSceneGraphFactory::addWavefront(const char* file_name, glm::mat4 m
 		geom_node->radius = 0.f;
 		// Radius calculation
 
-		for (size_t i = 0; i < geom_node->vertex_data.size(); i++) {
-			float x = geom_node->vertex_data.at(i).position[0];
-			float y = geom_node->vertex_data.at(i).position[1];
-			float z = geom_node->vertex_data.at(i).position[2];
+		for (size_t i = 0; i < vertices.size(); i++) {
+			float x = vertices.at(i).position[0];
+			float y = vertices.at(i).position[1];
+			float z = vertices.at(i).position[2];
 			float nx = x - geom_node->center[0];
 			float ny = y - geom_node->center[1];
 			float nz = z - geom_node->center[2];
@@ -347,10 +355,27 @@ bool WavefrontSceneGraphFactory::addWavefront(const char* file_name, glm::mat4 m
 			geom_node->radius = 0.1f;
 		}
 
+		// Reduce duplicated vertices, see https://vulkan-tutorial.com/Loading_models
+		std::unordered_map<Vertex, GLuint> unique_vertices;
+
+		for(std::vector<Vertex>::iterator vit = vertices.begin(); vit != vertices.end(); ++vit) {
+			if(unique_vertices.find(*vit) == unique_vertices.end()) {
+				GLuint vindex = (GLuint) unique_vertices.size();
+				unique_vertices.insert(std::make_pair(*vit, vindex));
+				geom_node->vertex_data.push_back(*vit);
+			}
+			geom_node->index_data.push_back(unique_vertices[*vit]);
+		}
+
+		total_duplicates_removed += (vertices.size() - unique_vertices.size());
+
+		// Free up some memory
+		unique_vertices.clear();
+		vertices.clear();
+
 		if (shapes[s].mesh.material_ids.size() > 0
 				&& shapes[s].mesh.material_ids.size() > s) {
-			size_t node_mat_id = shapes[s].mesh.material_ids[s]
-					+ initial_num_materials;
+			size_t node_mat_id = shapes[s].mesh.material_ids[s] + initial_num_materials;
 			node_material_association[geom_node] = node_mat_id;
 		}
 
@@ -362,6 +387,7 @@ bool WavefrontSceneGraphFactory::addWavefront(const char* file_name, glm::mat4 m
 		return false;
 	}
 
+	LOGI("removed %i duplicate vertices from %s", (int)total_duplicates_removed, file_name);
 	return true;
 }
 
@@ -370,14 +396,12 @@ Node* WavefrontSceneGraphFactory::build() {
 	assert(group);
 	group->name = std::string(name);
 
-	for (std::vector<MaterialNode*>::iterator it = materials.begin();
-			it != materials.end(); ++it) {
+	for (std::vector<MaterialNode*>::iterator it = materials.begin(); it != materials.end(); ++it) {
 		MaterialNode* wfm = *it;
 		group->children.push_back(wfm);
 	}
 
-	for (std::vector<GeometryNode*>::iterator it = this->geometry_nodes.begin();
-			it != this->geometry_nodes.end(); ++it) {
+	for (std::vector<GeometryNode*>::iterator it = this->geometry_nodes.begin(); it != this->geometry_nodes.end(); ++it) {
 		GeometryNode* geom_node = *it;
 		size_t mat_id = node_material_association[geom_node];
 		std::string mat_name = materials.at(mat_id)->name;

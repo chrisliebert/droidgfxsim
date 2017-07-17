@@ -5,6 +5,21 @@
 
 namespace scenegraph {
 
+bool Vertex::operator==(const Vertex& other) const {
+	for(int i=0; i<3; i++) {
+		if(position[i] != other.position[i]) {
+			return false;
+		}
+		if(normal[i] != other.normal[i]) {
+			return false;
+		}
+		if(i < 2 && texcoord[i] != other.texcoord[i]) {
+			return false;
+		}
+	}
+	return true;
+}
+
 GeometryNode::GeometryNode() {
 	type = Geometry;
 	radius = 0.f;

@@ -17,6 +17,15 @@ void GL2SceneGraphRenderer::walk_init_buffers(Node* node) {
 					geometry_node->vertex_data.data(), GL_STATIC_DRAW);
 			glBindBuffer(GL_ARRAY_BUFFER, 0);
 			vbos.insert(std::make_pair(geometry_node, vbo));
+
+			GLuint ibo;
+			glGenBuffers(1, &ibo);
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
+			glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint) * geometry_node->index_data.size(),
+					geometry_node->index_data.data(), GL_STATIC_DRAW);
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+			ibos.insert(std::make_pair(geometry_node, ibo));
 		}
 	}
 	for(std::vector<Node*>::iterator it = node->children.begin(); it!=node->children.end(); ++it) {
@@ -32,17 +41,20 @@ void GL2SceneGraphRenderer::walk_render(Node* node) {
 		assert(geometry_node);
 		if(vbos.find(geometry_node) != vbos.end()) {
 			GLuint vbo = vbos[geometry_node];
+			GLuint ibo = ibos[geometry_node];
 			glBindBuffer(GL_ARRAY_BUFFER, vbo);
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
 			glEnableVertexAttribArray(0);
 			glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), BUFFER_OFFSET(0));
 			glEnableVertexAttribArray(1);
 			glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex),	BUFFER_OFFSET(3 * sizeof(float)));
 			glEnableVertexAttribArray(2);
 			glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex),	BUFFER_OFFSET(6 * sizeof(float)));
-			glDrawArrays(GL_TRIANGLES, 0, geometry_node->vertex_data.size());
+			glDrawElements(GL_TRIANGLES, (GLsizei)(sizeof(GLuint) * geometry_node->index_data.size()), GL_UNSIGNED_INT, BUFFER_OFFSET(0));
 			glDisableVertexAttribArray(2);
 			glDisableVertexAttribArray(1);
 			glDisableVertexAttribArray(0);
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 			glBindBuffer(GL_ARRAY_BUFFER, 0);
 		}
 	} else if(node->type == NodeType::Material) {
@@ -50,8 +62,9 @@ void GL2SceneGraphRenderer::walk_render(Node* node) {
 		assert(material_node);
 		std::map<std::string, GLuint>::iterator texture_id_itr = texture_ids.find(material_node->diffuse_texture);
 		if(texture_id_itr == texture_ids.end()) {
-			//LOGE("Unable to use texture %s", material_node->diffuse_texture.c_str());
+			LOGI("Unable to use texture %s", material_node->diffuse_texture.c_str());
 		} else {
+			glUniform1ui(glGetUniformLocation(shader_program, "diffuseTexture"), 0);
 			GLuint texture_id = texture_id_itr->second;
 			glBindTexture(GL_TEXTURE_2D, texture_id);
 		}
@@ -67,9 +80,11 @@ void GL2SceneGraphRenderer::walk_render(Node* node) {
 
 GL2SceneGraphRenderer::GL2SceneGraphRenderer(std::map<std::string, Image*>& images) {
 	for(std::map<std::string, Image*>::iterator it = images.begin(); it != images.end(); ++it) {
-		texture_ids[it->first] = it->second->loadTexture();
-		delete it->second;
-		it->second = 0;
+		if(texture_ids.find(it->first) == texture_ids.end()) {
+			texture_ids.insert(std::make_pair(it->first, it->second->loadTexture()));
+			delete it->second;
+			it->second = 0;
+		}
 	}
 	images.clear();
 
@@ -181,6 +196,10 @@ GL2SceneGraphRenderer::GL2SceneGraphRenderer(std::map<std::string, Image*>& imag
 }
 
 GL2SceneGraphRenderer::~GL2SceneGraphRenderer() {
+	for(std::map<GeometryNode*, GLuint>::iterator it = ibos.begin(); it != ibos.end(); it++) {
+		GLuint ibo = it->second;
+		glDeleteBuffers(1, &ibo);
+	}
 	for(std::map<GeometryNode*, GLuint>::iterator it = vbos.begin(); it != vbos.end(); it++) {
 		GLuint vbo = it->second;
 		glDeleteBuffers(1, &vbo);
@@ -190,6 +209,7 @@ GL2SceneGraphRenderer::~GL2SceneGraphRenderer() {
 		glDeleteTextures(1, &texture_id);
 	}
 	vbos.clear();
+	ibos.clear();
 	glDeleteProgram(shader_program);
 }
 
@@ -202,6 +222,8 @@ void GL2SceneGraphRenderer::render(Node* node, Camera* camera) {
 	glUniformMatrix4fv(projection_location, 1, GL_FALSE, glm::value_ptr(camera->projection_matrix));
 	GLint modelview_location = glGetUniformLocation(shader_program, "modelview");//todo save this
 	glUniformMatrix4fv(modelview_location, 1, GL_FALSE, glm::value_ptr(camera->modelview_matrix));
+	glUniform3f(glGetUniformLocation(shader_program, "lightPos"), 0.0f, 10.0f, -10.0f);
+	glUniform1ui(glGetUniformLocation(shader_program, "diffuseTexture"), 0);
 	walk_render(node);
 	glUseProgram(0);
 }

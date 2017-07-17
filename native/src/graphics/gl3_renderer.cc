@@ -10,7 +10,7 @@ void GL3SceneGraphRenderer::walk_init_buffers(Node* node) {
 		GeometryNode* geometry_node = (GeometryNode*) node;
 		assert(geometry_node);
 		if (vbos.find(geometry_node) == vbos.end()) {
-			GLuint vao, vbo;
+			GLuint vao, vbo, ibo;
 			glGenBuffers(1, &vbo);
 			glBindBuffer(GL_ARRAY_BUFFER, vbo);
 			glBufferData(GL_ARRAY_BUFFER,
@@ -21,6 +21,13 @@ void GL3SceneGraphRenderer::walk_init_buffers(Node* node) {
 			vaos.insert(std::make_pair(geometry_node, vao));
 			glBindBuffer(GL_ARRAY_BUFFER, 0);
 			vbos.insert(std::make_pair(geometry_node, vbo));
+
+			glGenBuffers(1, &ibo);
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
+			glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint) * geometry_node->index_data.size(),
+					geometry_node->index_data.data(), GL_STATIC_DRAW);
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+			ibos.insert(std::make_pair(geometry_node, ibo));
 		}
 	}
 	for (std::vector<Node*>::iterator it = node->children.begin();
@@ -46,21 +53,21 @@ void GL3SceneGraphRenderer::walk_render(Node* node) {
 				exit(8);
 			}
 			GLuint vao = vao_node->second;
+			GLuint ibo = ibos[geometry_node];
 			glBindVertexArray(vao);
 			glBindBuffer(GL_ARRAY_BUFFER, vbo);
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
 			glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex),
 					(const GLvoid*) offsetof(Vertex, position));
 
 			glEnableVertexAttribArray(0);
 			glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex),
 					BUFFER_OFFSET(0));
-
 			glVertexAttribPointer(1, 3, GL_UNSIGNED_BYTE, GL_TRUE,
 					sizeof(Vertex), (const GLvoid*) offsetof(Vertex, normal));
 			glEnableVertexAttribArray(1);
 			glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex),
 					BUFFER_OFFSET(3 * sizeof(float)));
-
 			glVertexAttribPointer(2, 2, GL_UNSIGNED_BYTE, GL_TRUE,
 					sizeof(Vertex),
 					(const GLvoid*) offsetof(Vertex, texcoord));
@@ -68,10 +75,11 @@ void GL3SceneGraphRenderer::walk_render(Node* node) {
 			glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex),
 					BUFFER_OFFSET(6 * sizeof(float)));
 
-			glDrawArrays(GL_TRIANGLES, 0, geometry_node->vertex_data.size());
+			glDrawElements(GL_TRIANGLES, (GLsizei)(sizeof(GLuint) * geometry_node->index_data.size()), GL_UNSIGNED_INT, BUFFER_OFFSET(0));
 			glDisableVertexAttribArray(2);
 			glDisableVertexAttribArray(1);
 			glDisableVertexAttribArray(0);
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 			glBindBuffer(GL_ARRAY_BUFFER, 0);
 			glBindVertexArray(0);
 		}
@@ -98,13 +106,13 @@ void GL3SceneGraphRenderer::walk_render(Node* node) {
 	}
 }
 
-GL3SceneGraphRenderer::GL3SceneGraphRenderer(
-		std::map<std::string, Image*>& images) {
-	for (std::map<std::string, Image*>::iterator it = images.begin();
-			it != images.end(); ++it) {
-		texture_ids[it->first] = it->second->loadTexture();
-		delete it->second;
-		it->second = 0;
+GL3SceneGraphRenderer::GL3SceneGraphRenderer(std::map<std::string, Image*>& images) {
+	for(std::map<std::string, Image*>::iterator it = images.begin(); it != images.end(); ++it) {
+		if(texture_ids.find(it->first) == texture_ids.end()) {
+			texture_ids.insert(std::make_pair(it->first, it->second->loadTexture()));
+			delete it->second;
+			it->second = 0;
+		}
 	}
 	images.clear();
 
@@ -192,6 +200,11 @@ GL3SceneGraphRenderer::~GL3SceneGraphRenderer() {
 		glDeleteVertexArrays(1, &vao);
 	}
 
+	for(std::map<GeometryNode*, GLuint>::iterator it = ibos.begin(); it != ibos.end(); it++) {
+		GLuint ibo = it->second;
+		glDeleteBuffers(1, &ibo);
+	}
+
 	for (std::map<GeometryNode*, GLuint>::iterator it = vbos.begin();
 			it != vbos.end(); ++it) {
 		GLuint vbo = it->second;
@@ -206,37 +219,10 @@ GL3SceneGraphRenderer::~GL3SceneGraphRenderer() {
 
 	glDeleteProgram(shader_program);
 	vaos.clear();
+	ibos.clear();
 	vbos.clear();
 }
 
-/*
-#include "graphics/stb_easy_font.h"
-void printString(float x, float y, char *text, float r, float g, float b) {
-	static char buffer[99999];
-	int num_quads;
-	GLuint vertex_data_size = sizeof(float) * 4;
-	num_quads = stb_easy_font_print(x, y, text, NULL, buffer, sizeof(buffer));
-	GLuint vao, vbo;
-	glGenBuffers(1, &vbo);
-	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	glBufferData(GL_ARRAY_BUFFER, vertex_data_size, buffer, GL_STATIC_DRAW);
-	glGenVertexArrays(1, &vao);
-
-	glBindVertexArray(vao);
-	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, vertex_data_size,
-			BUFFER_OFFSET(0));
-
-	glDrawArrays(GL_POINTS, 0, num_quads * 4);
-	glDisableVertexAttribArray(0);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindVertexArray(0);
-	glDeleteVertexArrays(1, &vao);
-	glDeleteBuffers(1, &vbo);
-}
-*/
 
 void GL3SceneGraphRenderer::render(Node* node, Camera* camera) {
 	glEnable(GL_DEPTH_TEST);

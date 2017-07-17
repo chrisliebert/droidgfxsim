@@ -76,9 +76,11 @@ void Application::parseXMLNode(rapidxml::xml_node<>* my_xml_node,
 				assert(status);
 				for (std::set<std::string>::iterator it = factory.textures.begin(); it != factory.textures.end(); ++it) {
 					std::string s = *it;
-					Image* t = new Image(s.c_str(), asset_manager);
-					assert(t);
-					images[s] = t;
+					if(images.find(s) == images.end()) {
+						Image* t = new Image(s.c_str(), asset_manager);
+						assert(t);
+						images.insert(std::make_pair(s, t));
+					}
 				}
 				Node* wf = factory.build();
 				assert(wf);
@@ -140,13 +142,10 @@ void Application::step() {
 		std::map<int, PhysicsNode*>::iterator itr = simulation->collision_node_index.find(j);
 		if (itr != simulation->collision_node_index.end() && itr->second->mass > 0.f) {
 			btVector3 origin_bt = trans.getOrigin();
-			glm::vec3 pos((float) origin_bt.x(), (float) origin_bt.y(),
-					(float) origin_bt.z());
+			glm::vec3 pos((float) origin_bt.x(), (float) origin_bt.y(), (float) origin_bt.z());
 			glm::mat4 pos_mat = glm::translate(glm::mat4(1.0f), pos);
-
 			btQuaternion rotation_bt = trans.getRotation();
-			glm::quat quat(rotation_bt.w(), rotation_bt.x(), rotation_bt.y(),
-					rotation_bt.z());
+			glm::quat quat(rotation_bt.w(), rotation_bt.x(), rotation_bt.y(), rotation_bt.z());
 			glm::mat4 rotation = glm::toMat4(quat);
 			itr->second->transform_node->matrix = pos_mat * rotation;
 		}
