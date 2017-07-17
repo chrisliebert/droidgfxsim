@@ -205,7 +205,7 @@ int main(int argc, char** argv) {
 				glfwPollEvents();
 				// Check to see if the simulation has been aborted while framerate is low
 				if(glfwWindowShouldClose(window) == GL_TRUE) {
-				    break;
+					break;
 				}
 
 				if (!application) {
