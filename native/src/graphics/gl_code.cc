@@ -1,4 +1,4 @@
-// Copyright (C) 2017 Chris Liebert
+// Copyright (C) 2017-2026 Chris Liebert
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -12,7 +12,10 @@ static void checkGlError(const char* op) {
 }
 
 Image::Image(const char *filename, AssetManager *manager) {
-	Image();
+	w = 0;
+	h = 0;
+	comp = 0;
+	data = 0;
 	if(!loadAsset(filename, manager)) {
 		LOGE("Unable to load image: %s", filename);
 	}
@@ -27,16 +30,17 @@ Image::Image() {
 
 Image::~Image() {
 	if(data) {
-		STBI_FREE(data);		
+		STBI_FREE(data);
+		data = 0;
 	}
 }
 
 bool Image::loadAsset(const char* filename, AssetManager* manager) {
     size_t file_length = 0;
     unsigned char *image_file_bytes = manager->loadBinaryFile(filename, file_length);
-    if(file_length == 0) { return false; }
-    data = stbi_load_from_memory(image_file_bytes, (GLsizei)(file_length * sizeof(unsigned char)),
-                                        &w, &h, &comp, STBI_default);
+    if(file_length == 0 || image_file_bytes == 0) { return false; }
+    data = stbi_load_from_memory(image_file_bytes, (int)file_length,
+                                 &w, &h, &comp, STBI_default);
     delete [] image_file_bytes;
     if (data == 0) {
         return false;
@@ -50,23 +54,47 @@ GLuint Image::loadTexture() {
 		w = 8;
 		h = 8;
 		comp = 3;
-		size_t num_pixels = comp * w * h;
+		size_t num_pixels = (size_t)(comp * w * h);
 		data = (unsigned char*) STBI_MALLOC(num_pixels);
-		for(size_t i=0; i<num_pixels; i++) {
-			data[i] = 255;
+		if(data) {
+			for(size_t i=0; i<num_pixels; i++) {
+				data[i] = 255;
+			}
 		}
 	}
-	GLuint texture_id;
+	GLuint texture_id = 0;
 	glGenTextures(1, &texture_id);
 	glBindTexture(GL_TEXTURE_2D, texture_id);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	if (comp == 3) {
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, w, h, 0,
-				GL_RGB, GL_UNSIGNED_BYTE, data);
-	} else if (comp == 4) {
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0,
-				GL_RGBA, GL_UNSIGNED_BYTE, data);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+	if (data != 0) {
+		if (comp == 1) {
+#if defined(GL_RED)
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, w, h, 0,
+					GL_RED, GL_UNSIGNED_BYTE, data);
+#elif defined(GL_LUMINANCE)
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, w, h, 0,
+					GL_LUMINANCE, GL_UNSIGNED_BYTE, data);
+#endif
+		} else if (comp == 2) {
+#if defined(GL_RG)
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RG, w, h, 0,
+					GL_RG, GL_UNSIGNED_BYTE, data);
+#elif defined(GL_LUMINANCE_ALPHA)
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE_ALPHA, w, h, 0,
+					GL_LUMINANCE_ALPHA, GL_UNSIGNED_BYTE, data);
+#endif
+		} else if (comp == 3) {
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, w, h, 0,
+					GL_RGB, GL_UNSIGNED_BYTE, data);
+		} else if (comp == 4) {
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0,
+					GL_RGBA, GL_UNSIGNED_BYTE, data);
+		}
+		glGenerateMipmap(GL_TEXTURE_2D);
 	}
 	glBindTexture(GL_TEXTURE_2D, 0);
 	return texture_id;
@@ -85,15 +113,11 @@ GLuint loadShader(GLenum shader_type, const char* shader_source) {
 			GLint infoLen = 0;
 			glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &infoLen);
 			if (infoLen > 0) {
-				if (infoLen >= MAX_SHADER_INFO_LOG_LENGTH) {
-					LOGE("Warning, shader info log truncated");
-				}
 				char buf[MAX_SHADER_INFO_LOG_LENGTH];
-				glGetShaderInfoLog(shader, infoLen, NULL, &buf[0]);
-				LOGE("Could not compile shader: %d:\n%s\n", shader_type, buf);
+				glGetShaderInfoLog(shader, sizeof(buf), NULL, &buf[0]);
+				LOGE("Could not compile shader %d:\n%s\n", shader_type, buf);
 				glDeleteShader(shader);
 				shader = 0;
-				exit(10);
 			}
 		}
 	}
@@ -108,6 +132,7 @@ GLuint createProgram(const char* vertex_source, const char* fragment_source) {
 
 	GLuint pixelShader = loadShader(GL_FRAGMENT_SHADER, fragment_source);
 	if (!pixelShader) {
+		glDeleteShader(vertexShader);
 		return 0;
 	}
 
@@ -124,23 +149,20 @@ GLuint createProgram(const char* vertex_source, const char* fragment_source) {
 			GLint buflen = 0;
 			glGetProgramiv(program, GL_INFO_LOG_LENGTH, &buflen);
 			if (buflen > 0) {
-				if (buflen >= MAX_SHADER_INFO_LOG_LENGTH) {
-					LOGE("Warning, shader program info log truncated");
-				}
 				char buf[MAX_SHADER_INFO_LOG_LENGTH];
-				glGetProgramInfoLog(program, buflen, NULL, &buf[0]);
+				glGetProgramInfoLog(program, sizeof(buf), NULL, &buf[0]);
 				LOGE("Could not link program:\n%s\n", &buf[0]);
 			}
 			glDeleteProgram(program);
 			program = 0;
-		} else {
-			// Delete the shader objects once the program is linked
-			glDeleteShader(vertexShader);
-			glDeleteShader(pixelShader);
 		}
+		// Always delete shaders after linking or failure
+		glDeleteShader(vertexShader);
+		glDeleteShader(pixelShader);
 	} else {
 		LOGE("Unable to create program\n");
+		glDeleteShader(vertexShader);
+		glDeleteShader(pixelShader);
 	}
 	return program;
 }
-

@@ -1,4 +1,4 @@
-// Copyright (C) 2017 Chris Liebert
+// Copyright (C) 2017-2026 Chris Liebert
 
 #ifndef _SCENE_GRAPH_H_
 #define _SCENE_GRAPH_H_
@@ -39,6 +39,8 @@ typedef enum NodeType {
 class Node {
 public:
 	Node();
+	virtual ~Node();
+
 	Node* find(std::string& name);
 	Node* find(const char* name);
 	Node* find(std::string& name, NodeType search_type);
@@ -53,26 +55,37 @@ public:
 class GeometryNode: public Node {
 public:
 	GeometryNode();
+	virtual ~GeometryNode() override = default;
+
 	float center[3];
 	float radius;
 	std::vector<Vertex> vertex_data;
 	std::vector<GLuint> index_data;
+
+	void computeWelzlBoundingSphere();
 };
 
 class MaterialNode: public Node {
 public:
 	MaterialNode();
+	virtual ~MaterialNode() override = default;
+
 	std::string diffuse_texture;
 };
 
 class SwitchNode: public Node {
 public:
+	SwitchNode();
+	virtual ~SwitchNode() override = default;
+
 	bool enabled;
 };
 
 class TransformNode: public Node {
 public:
 	TransformNode();
+	virtual ~TransformNode() override = default;
+
 	glm::mat4 matrix;
 };
 
@@ -82,48 +95,22 @@ Node* find(std::string& search, Node* root, NodeType type);
 TransformNode* find_transform_node(std::string& search, Node* root);
 TransformNode* find_transform_node(const char* search, Node* root);
 
-template<typename node_t>
-void destroy(node_t* node) {
-	node_t* root = (node_t*) node;
-	if (root == 0)
-		return;
-	for (std::vector<Node*>::iterator it = root->children.begin();
-			it != root->children.end(); ++it) {
-		Node* child = *it;
-		if(child) {
-			switch (child->type) {
-			case Geometry:
-				destroy((GeometryNode*) child);
-				break;
-			case Group:
-				destroy(child);
-				break;
-			case Material:
-				destroy((MaterialNode*) child);
-				break;
-			case Switch:
-				destroy((SwitchNode*) child);
-				break;
-			case Transform:
-				destroy((TransformNode*) child);
-				break;
-			default:
-				break;
-			}
-		}
+inline void destroy(Node* root) {
+	if (root == nullptr) return;
+	for (Node* child : root->children) {
+		destroy(child);
 	}
 	root->children.clear();
 	delete root;
-	root = 0;
 }
 
-} //namespace scenegraph
+} // namespace scenegraph
 
 // Hash function for Vertex
 namespace std {
     template<> struct hash<scenegraph::Vertex> {
         size_t operator()(scenegraph::Vertex const& vertex) const {
-            size_t h;
+            size_t h = 0;
             for(int i=0; i<3; i++) {
             	if(i == 0) {
             		h = hash<float>()(vertex.position[0]);

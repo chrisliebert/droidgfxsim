@@ -1,0 +1,14 @@
+build/
+build2/
+.vscode/
+.idea/
+.gradle/
+*.user
+*.suo
+*.VC.db
+*.opendb
+Debug/
+Release/
+bin/
+lib/
+artifacts/

@@ -1,144 +1,161 @@
 <?xml version="1.0" ?>
-<WavefrontFile filename="test.obj">
-	<!-- InstanceNode matrix="1 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 1" name="Cube.000">BoxInstance.000</InstanceNode -->
-	<PhysicsNode name="Plane" mass="0.0">
-		<CollisionShape width="50" height="50" length="50"
+<WavefrontFile filename="models.obj">
+	<!-- Static Arena & Platforms -->
+	<PhysicsNode name="Arena_Floor" mass="0.0">
+		<CollisionShape width="30" height="50" length="30"
 			offset_x="0" offset_y="-50" offset_z="0">Box</CollisionShape>
 	</PhysicsNode>
-	<PhysicsNode name="Cube.000" mass="1">
-		<CollisionShape width="1" height="1" length="1"
+	<PhysicsNode name="Upper_Platform" mass="0.0">
+		<CollisionShape>ConvexHull</CollisionShape>
+	</PhysicsNode>
+	<PhysicsNode name="Ramp_Left" mass="0.0">
+		<CollisionShape>ConvexHull</CollisionShape>
+	</PhysicsNode>
+	<PhysicsNode name="Ramp_Right" mass="0.0">
+		<CollisionShape>ConvexHull</CollisionShape>
+	</PhysicsNode>
+
+	<!-- Dynamic Domino Pillars -->
+	<PhysicsNode name="Pillar_00" mass="3.0">
+		<CollisionShape radius="0.4" height="2.4"
+			offset_x="0" offset_y="0" offset_z="0">Cylinder</CollisionShape>
+	</PhysicsNode>
+	<PhysicsNode name="Pillar_01" mass="3.0">
+		<CollisionShape radius="0.4" height="2.4"
+			offset_x="0" offset_y="0" offset_z="0">Cylinder</CollisionShape>
+	</PhysicsNode>
+	<PhysicsNode name="Pillar_02" mass="3.0">
+		<CollisionShape radius="0.4" height="2.4"
+			offset_x="0" offset_y="0" offset_z="0">Cylinder</CollisionShape>
+	</PhysicsNode>
+	<PhysicsNode name="Pillar_03" mass="3.0">
+		<CollisionShape radius="0.4" height="2.4"
+			offset_x="0" offset_y="0" offset_z="0">Cylinder</CollisionShape>
+	</PhysicsNode>
+	<PhysicsNode name="Pillar_04" mass="3.0">
+		<CollisionShape radius="0.4" height="2.4"
+			offset_x="0" offset_y="0" offset_z="0">Cylinder</CollisionShape>
+	</PhysicsNode>
+	<PhysicsNode name="Pillar_05" mass="3.0">
+		<CollisionShape radius="0.4" height="2.4"
+			offset_x="0" offset_y="0" offset_z="0">Cylinder</CollisionShape>
+	</PhysicsNode>
+	<PhysicsNode name="Pillar_06" mass="3.0">
+		<CollisionShape radius="0.4" height="2.4"
+			offset_x="0" offset_y="0" offset_z="0">Cylinder</CollisionShape>
+	</PhysicsNode>
+	<PhysicsNode name="Pillar_07" mass="3.0">
+		<CollisionShape radius="0.4" height="2.4"
+			offset_x="0" offset_y="0" offset_z="0">Cylinder</CollisionShape>
+	</PhysicsNode>
+
+	<!-- Dynamic Rolling Balls -->
+	<PhysicsNode name="Ball_00" mass="2.0">
+		<CollisionShape radius="1.0"
+			offset_x="0" offset_y="0" offset_z="0">Sphere</CollisionShape>
+	</PhysicsNode>
+	<PhysicsNode name="Ball_01" mass="2.0">
+		<CollisionShape radius="1.0"
+			offset_x="0" offset_y="0" offset_z="0">Sphere</CollisionShape>
+	</PhysicsNode>
+	<PhysicsNode name="Ball_02" mass="2.0">
+		<CollisionShape radius="1.0"
+			offset_x="0" offset_y="0" offset_z="0">Sphere</CollisionShape>
+	</PhysicsNode>
+	<PhysicsNode name="Ball_03" mass="2.0">
+		<CollisionShape radius="1.0"
+			offset_x="0" offset_y="0" offset_z="0">Sphere</CollisionShape>
+	</PhysicsNode>
+	<PhysicsNode name="Ball_04" mass="2.0">
+		<CollisionShape radius="1.0"
+			offset_x="0" offset_y="0" offset_z="0">Sphere</CollisionShape>
+	</PhysicsNode>
+	<PhysicsNode name="Ball_05" mass="2.0">
+		<CollisionShape radius="1.0"
+			offset_x="0" offset_y="0" offset_z="0">Sphere</CollisionShape>
+	</PhysicsNode>
+	<PhysicsNode name="Ball_06" mass="2.0">
+		<CollisionShape radius="1.0"
+			offset_x="0" offset_y="0" offset_z="0">Sphere</CollisionShape>
+	</PhysicsNode>
+	<PhysicsNode name="Ball_07" mass="2.0">
+		<CollisionShape radius="1.0"
+			offset_x="0" offset_y="0" offset_z="0">Sphere</CollisionShape>
+	</PhysicsNode>
+	<PhysicsNode name="Ball_08" mass="2.0">
+		<CollisionShape radius="1.0"
+			offset_x="0" offset_y="0" offset_z="0">Sphere</CollisionShape>
+	</PhysicsNode>
+	<PhysicsNode name="Ball_09" mass="2.0">
+		<CollisionShape radius="1.0"
+			offset_x="0" offset_y="0" offset_z="0">Sphere</CollisionShape>
+	</PhysicsNode>
+	<PhysicsNode name="Ball_10" mass="2.0">
+		<CollisionShape radius="1.0"
+			offset_x="0" offset_y="0" offset_z="0">Sphere</CollisionShape>
+	</PhysicsNode>
+	<PhysicsNode name="Ball_11" mass="2.0">
+		<CollisionShape radius="1.0"
+			offset_x="0" offset_y="0" offset_z="0">Sphere</CollisionShape>
+	</PhysicsNode>
+	<PhysicsNode name="Ball_12" mass="2.0">
+		<CollisionShape radius="1.0"
+			offset_x="0" offset_y="0" offset_z="0">Sphere</CollisionShape>
+	</PhysicsNode>
+	<PhysicsNode name="Ball_13" mass="2.0">
+		<CollisionShape radius="1.0"
+			offset_x="0" offset_y="0" offset_z="0">Sphere</CollisionShape>
+	</PhysicsNode>
+	<PhysicsNode name="Ball_14" mass="2.0">
+		<CollisionShape radius="1.0"
+			offset_x="0" offset_y="0" offset_z="0">Sphere</CollisionShape>
+	</PhysicsNode>
+	<PhysicsNode name="Ball_15" mass="2.0">
+		<CollisionShape radius="1.0"
+			offset_x="0" offset_y="0" offset_z="0">Sphere</CollisionShape>
+	</PhysicsNode>
+
+	<!-- Dynamic Stacked Crates -->
+	<PhysicsNode name="Crate_00" mass="1.5">
+		<CollisionShape width="0.8" height="0.8" length="0.8"
 			offset_x="0" offset_y="0" offset_z="0">Box</CollisionShape>
 	</PhysicsNode>
-	<PhysicsNode name="Cube.001" mass="1">
-		<CollisionShape width="1" height="1" length="1"
+	<PhysicsNode name="Crate_01" mass="1.5">
+		<CollisionShape width="0.8" height="0.8" length="0.8"
 			offset_x="0" offset_y="0" offset_z="0">Box</CollisionShape>
 	</PhysicsNode>
-	<PhysicsNode name="Cube.002" mass="1">
-		<CollisionShape width="1" height="1" length="1"
+	<PhysicsNode name="Crate_02" mass="1.5">
+		<CollisionShape width="0.8" height="0.8" length="0.8"
 			offset_x="0" offset_y="0" offset_z="0">Box</CollisionShape>
 	</PhysicsNode>
-	<PhysicsNode name="Cube.003" mass="1">
-		<CollisionShape width="1" height="1" length="1"
+	<PhysicsNode name="Crate_03" mass="1.5">
+		<CollisionShape width="0.8" height="0.8" length="0.8"
 			offset_x="0" offset_y="0" offset_z="0">Box</CollisionShape>
 	</PhysicsNode>
-	<PhysicsNode name="Cube.004" mass="1">
-		<CollisionShape width="1" height="1" length="1"
+	<PhysicsNode name="Crate_04" mass="1.5">
+		<CollisionShape width="0.8" height="0.8" length="0.8"
 			offset_x="0" offset_y="0" offset_z="0">Box</CollisionShape>
 	</PhysicsNode>
-	<PhysicsNode name="Cube.005" mass="1">
-		<CollisionShape width="1" height="1" length="1"
+	<PhysicsNode name="Crate_05" mass="1.5">
+		<CollisionShape width="0.8" height="0.8" length="0.8"
 			offset_x="0" offset_y="0" offset_z="0">Box</CollisionShape>
 	</PhysicsNode>
-	<PhysicsNode name="Cube.006" mass="1">
-		<CollisionShape width="1" height="1" length="1"
-			offset_x="0" offset_y="0" offset_z="0">Box</CollisionShape>
+
+	<!-- Dynamic Barrels -->
+	<PhysicsNode name="Barrel_00" mass="2.5">
+		<CollisionShape radius="0.7" height="1.8"
+			offset_x="0" offset_y="0" offset_z="0">Cylinder</CollisionShape>
 	</PhysicsNode>
-	<PhysicsNode name="Cube.007" mass="1">
-		<CollisionShape width="1" height="1" length="1"
-			offset_x="0" offset_y="0" offset_z="0">Box</CollisionShape>
+	<PhysicsNode name="Barrel_01" mass="2.5">
+		<CollisionShape radius="0.7" height="1.8"
+			offset_x="0" offset_y="0" offset_z="0">Cylinder</CollisionShape>
 	</PhysicsNode>
-	<PhysicsNode name="Cube.008" mass="1">
-		<CollisionShape width="1" height="1" length="1"
-			offset_x="0" offset_y="0" offset_z="0">Box</CollisionShape>
+	<PhysicsNode name="Barrel_02" mass="2.5">
+		<CollisionShape radius="0.7" height="1.8"
+			offset_x="0" offset_y="0" offset_z="0">Cylinder</CollisionShape>
 	</PhysicsNode>
-	<PhysicsNode name="Cube.009" mass="1">
-		<CollisionShape width="1" height="1" length="1"
-			offset_x="0" offset_y="0" offset_z="0">Box</CollisionShape>
-	</PhysicsNode>
-	<PhysicsNode name="Cube.010" mass="1">
-		<CollisionShape width="1" height="1" length="1"
-			offset_x="0" offset_y="0" offset_z="0">Box</CollisionShape>
-	</PhysicsNode>
-	<PhysicsNode name="Cube.011" mass="1">
-		<CollisionShape width="1" height="1" length="1"
-			offset_x="0" offset_y="0" offset_z="0">Box</CollisionShape>
-	</PhysicsNode>
-	<PhysicsNode name="Cube.012" mass="1">
-		<CollisionShape width="1" height="1" length="1"
-			offset_x="0" offset_y="0" offset_z="0">Box</CollisionShape>
-	</PhysicsNode>
-	<PhysicsNode name="Cube.013" mass="1">
-		<CollisionShape width="1" height="1" length="1"
-			offset_x="0" offset_y="0" offset_z="0">Box</CollisionShape>
-	</PhysicsNode>
-	<PhysicsNode name="Cube.014" mass="1">
-		<CollisionShape width="1" height="1" length="1"
-			offset_x="0" offset_y="0" offset_z="0">Box</CollisionShape>
-	</PhysicsNode>
-	<PhysicsNode name="Cube.015" mass="1">
-		<CollisionShape width="1" height="1" length="1"
-			offset_x="0" offset_y="0" offset_z="0">Box</CollisionShape>
-	</PhysicsNode>
-	<PhysicsNode name="Cube.016" mass="1">
-		<CollisionShape width="1" height="1" length="1"
-			offset_x="0" offset_y="0" offset_z="0">Box</CollisionShape>
-	</PhysicsNode>
-	<PhysicsNode name="Cube.017" mass="1">
-		<CollisionShape width="1" height="1" length="1"
-			offset_x="0" offset_y="0" offset_z="0">Box</CollisionShape>
-	</PhysicsNode>
-	<PhysicsNode name="Cube.018" mass="1">
-		<CollisionShape width="1" height="1" length="1"
-			offset_x="0" offset_y="0" offset_z="0">Box</CollisionShape>
-	</PhysicsNode>
-	<PhysicsNode name="Cube.019" mass="1">
-		<CollisionShape width="1" height="1" length="1"
-			offset_x="0" offset_y="0" offset_z="0">Box</CollisionShape>
-	</PhysicsNode>
-	<PhysicsNode name="Cube.020" mass="1">
-		<CollisionShape width="1" height="1" length="1"
-			offset_x="0" offset_y="0" offset_z="0">Box</CollisionShape>
-	</PhysicsNode>
-	<PhysicsNode name="Cube.021" mass="1">
-		<CollisionShape width="1" height="1" length="1"
-			offset_x="0" offset_y="0" offset_z="0">Box</CollisionShape>
-	</PhysicsNode>
-	<PhysicsNode name="Cube.022" mass="1">
-		<CollisionShape width="1" height="1" length="1"
-			offset_x="0" offset_y="0" offset_z="0">Box</CollisionShape>
-	</PhysicsNode>
-	<PhysicsNode name="Cube.023" mass="1">
-		<CollisionShape width="1" height="1" length="1"
-			offset_x="0" offset_y="0" offset_z="0">Box</CollisionShape>
-	</PhysicsNode>
-	<PhysicsNode name="Cube.024" mass="1">
-		<CollisionShape width="1" height="1" length="1"
-			offset_x="0" offset_y="0" offset_z="0">Box</CollisionShape>
-	</PhysicsNode>
-	<PhysicsNode name="Cube.025" mass="1">
-		<CollisionShape width="1" height="1" length="1"
-			offset_x="0" offset_y="0" offset_z="0">Box</CollisionShape>
-	</PhysicsNode>
-	<PhysicsNode name="Cube.026" mass="1">
-		<CollisionShape width="1" height="1" length="1"
-			offset_x="0" offset_y="0" offset_z="0">Box</CollisionShape>
-	</PhysicsNode>
-	<PhysicsNode name="Cube.027" mass="1">
-		<CollisionShape width="1" height="1" length="1"
-			offset_x="0" offset_y="0" offset_z="0">Box</CollisionShape>
-	</PhysicsNode>
-	<PhysicsNode name="Cube.028" mass="1">
-		<CollisionShape width="1" height="1" length="1"
-			offset_x="0" offset_y="0" offset_z="0">Box</CollisionShape>
-	</PhysicsNode>
-	<PhysicsNode name="Cube.029" mass="1">
-		<CollisionShape width="1" height="1" length="1"
-			offset_x="0" offset_y="0" offset_z="0">Box</CollisionShape>
-	</PhysicsNode>
-	<PhysicsNode name="Cube.030" mass="1">
-		<CollisionShape width="1" height="1" length="1"
-			offset_x="0" offset_y="0" offset_z="0">Box</CollisionShape>
-	</PhysicsNode>
-	<PhysicsNode name="Cube.031" mass="1">
-		<CollisionShape width="1" height="1" length="1"
-			offset_x="0" offset_y="0" offset_z="0">Box</CollisionShape>
-	</PhysicsNode>
-	<PhysicsNode name="Cube.032" mass="1">
-		<CollisionShape width="1" height="1" length="1"
-			offset_x="0" offset_y="0" offset_z="0">Box</CollisionShape>
-	</PhysicsNode>
-	<PhysicsNode name="Cube.033" mass="1">
-		<CollisionShape width="1" height="1" length="1"
-			offset_x="0" offset_y="0" offset_z="0">Box</CollisionShape>
+	<PhysicsNode name="Barrel_03" mass="2.5">
+		<CollisionShape radius="0.7" height="1.8"
+			offset_x="0" offset_y="0" offset_z="0">Cylinder</CollisionShape>
 	</PhysicsNode>
 </WavefrontFile>

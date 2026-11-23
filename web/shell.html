@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>DroidGfxSim — C++20 3D Graphics &amp; Physics Simulation</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background-color: #0d1117;
+        color: #c9d1d9;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        min-height: 100vh;
+        overflow-x: hidden;
+      }
+      header {
+        width: 100%;
+        max-width: 1280px;
+        padding: 16px 24px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 1px solid #30363d;
+      }
+      .logo-group {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .badge {
+        background: #238636;
+        color: #ffffff;
+        font-size: 12px;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 12px;
+        text-transform: uppercase;
+      }
+      h1 {
+        font-size: 20px;
+        font-weight: 700;
+        color: #58a6ff;
+      }
+      .controls-bar {
+        display: flex;
+        gap: 12px;
+      }
+      button.btn {
+        background: #21262d;
+        color: #c9d1d9;
+        border: 1px solid #30363d;
+        padding: 6px 14px;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+      button.btn:hover {
+        background: #30363d;
+        border-color: #8b949e;
+        color: #ffffff;
+      }
+      main {
+        flex: 1;
+        width: 100%;
+        max-width: 1280px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      }
+      .viewport-container {
+        position: relative;
+        width: 100%;
+        max-width: 1024px;
+        aspect-ratio: 16 / 9;
+        background: #000000;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+        border: 1px solid #30363d;
+      }
+      canvas.emscripten {
+        width: 100%;
+        height: 100%;
+        display: block;
+        border: 0;
+        outline: none;
+      }
+      .overlay-status {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(13, 17, 23, 0.9);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        z-index: 10;
+        transition: opacity 0.4s ease;
+      }
+      .overlay-status.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+      .spinner {
+        width: 48px;
+        height: 48px;
+        border: 4px solid #30363d;
+        border-top-color: #58a6ff;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+      #status {
+        font-size: 14px;
+        color: #8b949e;
+      }
+      .progress-bar-container {
+        width: 240px;
+        height: 6px;
+        background: #21262d;
+        border-radius: 3px;
+        overflow: hidden;
+      }
+      .progress-bar {
+        height: 100%;
+        width: 0%;
+        background: #58a6ff;
+        transition: width 0.2s ease;
+      }
+      footer {
+        width: 100%;
+        max-width: 1280px;
+        padding: 16px 24px;
+        font-size: 13px;
+        color: #8b949e;
+        display: flex;
+        justify-content: space-between;
+        border-top: 1px solid #30363d;
+      }
+      .instructions {
+        display: flex;
+        gap: 16px;
+      }
+      .key {
+        display: inline-block;
+        background: #21262d;
+        border: 1px solid #30363d;
+        border-radius: 4px;
+        padding: 2px 6px;
+        font-size: 11px;
+        color: #c9d1d9;
+        font-family: monospace;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="logo-group">
+        <h1>DroidGfxSim</h1>
+        <span class="badge">WebAssembly / WebGL2</span>
+      </div>
+      <div class="controls-bar">
+        <button class="btn" id="btn-fullscreen" onclick="toggleFullscreen()">Fullscreen</button>
+      </div>
+    </header>
+
+    <main>
+      <div class="viewport-container" id="viewport">
+        <div class="overlay-status" id="overlay">
+          <div class="spinner" id="spinner"></div>
+          <div id="status">Downloading simulation assets...</div>
+          <div class="progress-bar-container">
+            <div class="progress-bar" id="progress"></div>
+          </div>
+        </div>
+        <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
+      </div>
+    </main>
+
+    <footer>
+      <div class="instructions">
+        <span><span class="key">L-Click + Drag</span> Rotate Camera</span>
+        <span><span class="key">Space</span> Fire Projectile</span>
+        <span><span class="key">R</span> Hot-Reload Shaders</span>
+        <span><span class="key">F1</span> Toggle Physics Debug</span>
+      </div>
+      <div>Powered by C++20, Bullet Physics &amp; WebGL 2.0</div>
+    </footer>
+
+    <script type="text/javascript">
+      var statusElement = document.getElementById('status');
+      var progressElement = document.getElementById('progress');
+      var spinnerElement = document.getElementById('spinner');
+      var overlayElement = document.getElementById('overlay');
+      var canvasElement = document.getElementById('canvas');
+
+      function toggleFullscreen() {
+        if (!document.fullscreenElement) {
+          canvasElement.requestFullscreen().catch(err => {
+            console.error('Error enabling fullscreen:', err);
+          });
+        } else {
+          document.exitFullscreen();
+        }
+      }
+
+      var Module = {
+        preRun: [],
+        postRun: [
+          function() {
+            setTimeout(function() {
+              overlayElement.classList.add('hidden');
+            }, 300);
+          }
+        ],
+        print: (function() {
+          return function(text) {
+            if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
+            console.log(text);
+          };
+        })(),
+        printErr: function(text) {
+          if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
+          console.error(text);
+        },
+        canvas: (function() {
+          canvasElement.addEventListener("webglcontextlost", function(e) {
+            alert('WebGL context lost. Please reload the page.');
+            e.preventDefault();
+          }, false);
+          return canvasElement;
+        })(),
+        setStatus: function(text) {
+          if (!Module.setStatus.last) Module.setStatus.last = { time: Date.now(), text: '' };
+          if (text === Module.setStatus.last.text) return;
+          var m = text.match(/([^(]+)\((\d+(\.\d+)?)\/(\d+)\)/);
+          var now = Date.now();
+          if (m && now - Module.setStatus.last.time < 30) return;
+          Module.setStatus.last.time = now;
+          Module.setStatus.last.text = text;
+          if (m) {
+            text = m[1];
+            progressElement.style.width = (parseFloat(m[2]) / parseFloat(m[4]) * 100) + '%';
+          }
+          statusElement.innerHTML = text;
+          if (!text) {
+            overlayElement.classList.add('hidden');
+          }
+        },
+        totalDependencies: 0,
+        monitorRunDependencies: function(left) {
+          this.totalDependencies = Math.max(this.totalDependencies, left);
+          Module.setStatus(left ? 'Preparing engine (' + (this.totalDependencies-left) + '/' + this.totalDependencies + ')...' : 'Engine Ready');
+        }
+      };
+
+      Module.setStatus('Initializing WebAssembly runtime...');
+      window.onerror = function(event) {
+        Module.setStatus('Simulation Exception: ' + event);
+        spinnerElement.style.display = 'none';
+        Module.setStatus = function(text) {
+          if (text) console.error('[post-exception status] ' + text);
+        };
+      };
+    </script>
+    {{{ SCRIPT }}}
+  </body>
+</html>

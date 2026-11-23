@@ -13,6 +13,18 @@
 	#else
     	#include <GLES3/gl3.h>
 	#endif
+#elif defined(__EMSCRIPTEN__)
+	#include <GLES3/gl3.h>
+	#include <emscripten.h>
+	#include <emscripten/html5.h>
+#elif defined(__APPLE__)
+	#include <TargetConditionals.h>
+	#if TARGET_OS_IPHONE
+		#include <OpenGLES/ES3/gl.h>
+		#include <OpenGLES/ES3/glext.h>
+	#else
+		#include "glad/glad.h"
+	#endif
 #else
 	#include "glad/glad.h"
 #endif

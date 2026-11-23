@@ -1,14 +1,16 @@
-// Copyright (C) 2017 Chris Liebert
+// Copyright (C) 2017-2026 Chris Liebert
 
 #ifndef _CAMERA_H_
 #define _CAMERA_H_
+
+#ifndef _USE_MATH_DEFINES
+#define _USE_MATH_DEFINES
+#endif
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/vec3.hpp>
-
-#include "graphics/gl_code.h"
 
 class Camera {
 public:
@@ -22,12 +24,12 @@ public:
 	double horizontal_angle;
 	double vertical_angle;
 
-	void aim(double x, double y);
-	void moveForward(double amount);
-	void moveBackward(double amount);
-	void moveLeft(double amount);
-	void moveRight(double amount);
+	void aim(double dHeading, double dPitch);
+	void moveForward(double distance);
+	void moveBackward(double distance);
+	void moveLeft(double distance);
+	void moveRight(double distance);
 	void update();
 };
 
-#endif
+#endif // _CAMERA_H_
