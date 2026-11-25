@@ -5,6 +5,7 @@
 
 #include <cassert>
 #include <map>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -12,6 +13,7 @@
 #include "common/log.h"
 #include "btBulletDynamicsCommon.h"
 #include "graphics/scene_graph.h"
+#include "physics/terrain.h"
 
 using scenegraph::TransformNode;
 
@@ -36,12 +38,14 @@ protected:
     void addPhysicsBoxNode(TransformNode* trans_node, float mass, float width, float height, float length);
 	void addPhysicsConvexHullNode(TransformNode* trans_node, float mass);
 public:
+	std::unique_ptr<droidgfxsim::HeightmapTerrain> terrain;
 	btDiscreteDynamicsWorld* dynamics_world;
 	btAlignedObjectArray<btCollisionShape*> collision_shapes;
 	std::map<std::string, btBoxShape*> box_shapes;
 	std::map<std::string, btSphereShape*> sphere_shapes;
 	std::map<std::string, btCylinderShape*> cylinder_shapes;
 	std::map<std::string, btConvexHullShape*> convex_hull_shapes;
+	std::map<std::string, btCompoundShape*> compound_shapes;
 	std::map<std::string, btRigidBody*> rigid_bodies;
 	std::map<int, PhysicsNode*> collision_node_index;
 
@@ -49,6 +53,10 @@ public:
 	~Simulation();
 	void addPhysicsSphereNode(TransformNode* trans_node, float mass, float radius, float offset_x = 0.f, float offset_y = 0.f, float offset_z = 0.f);
 	void addPhysicsCylinderNode(TransformNode* trans_node, float mass, float radius, float height, float offset_x = 0.f, float offset_y = 0.f, float offset_z = 0.f);
+	void addPhysicsCompoundNode(TransformNode* trans_node, btCompoundShape* compound_shape, float mass);
+	btCompoundShape* createTorusCompoundShape(float major_radius, float minor_radius, int segments = 8, int axis = 0);
+	btRigidBody* addTerrainNode(TransformNode* trans_node, std::unique_ptr<droidgfxsim::HeightmapTerrain> heightfield);
+	float getTerrainHeightAt(float x, float z) const;
 	void applyForce(const std::string& rigid_body_name, const btVector3& force, const btVector3& rel_pos);
 	void parseXMLNode(rapidxml::xml_node<>* my_xml_node, scenegraph::Node* scene_node);
 	void step();

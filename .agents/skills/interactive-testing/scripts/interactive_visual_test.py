@@ -128,11 +128,23 @@ def capture_window(hwnd: wintypes.HWND, output_path: Path) -> bool:
 
 def send_key(hwnd: wintypes.HWND, vk_code: int, duration: float = 0.05):
     scancode = user32.MapVirtualKeyW(vk_code, 0)
-    lparam_down = 1 | (scancode << 16)
-    lparam_up = 1 | (scancode << 16) | (1 << 30) | (1 << 31)
+    extended_flag = (1 << 24) if vk_code in (VK_UP, VK_DOWN, VK_LEFT, VK_RIGHT) else 0
+    lparam_down = 1 | (scancode << 16) | extended_flag
+    lparam_up = 1 | (scancode << 16) | extended_flag | (1 << 30) | (1 << 31)
     user32.PostMessageW(hwnd, WM_KEYDOWN, vk_code, lparam_down)
     time.sleep(duration)
     user32.PostMessageW(hwnd, WM_KEYUP, vk_code, lparam_up)
+
+def unfocus_imgui(hwnd: wintypes.HWND):
+    rect = wintypes.RECT()
+    user32.GetClientRect(hwnd, ctypes.byref(rect))
+    cx = max(500, int((rect.right - rect.left) * 0.75))
+    cy = max(200, int((rect.bottom - rect.top) * 0.50))
+    lparam = ((cy & 0xFFFF) << 16) | (cx & 0xFFFF)
+    user32.PostMessageW(hwnd, 0x0201, 0x0001, lparam)  # WM_LBUTTONDOWN
+    time.sleep(0.03)
+    user32.PostMessageW(hwnd, 0x0202, 0, lparam)       # WM_LBUTTONUP
+    time.sleep(0.05)
 
 def main():
     parser = argparse.ArgumentParser(description="Automated Interactive Visual Testing for droidgfxsim")
@@ -174,20 +186,25 @@ def main():
 
     print(f"Starting droidgfxsim with command: {' '.join(cmd)}...")
     assets_dir = project_root / "app" / "src" / "main" / "assets"
-    proc = subprocess.Popen(cmd, cwd=str(assets_dir))
+    stdout_log_path = out_dir / "app_stdout.log"
+    stdout_file = open(stdout_log_path, "w", encoding="utf-8")
+    proc = subprocess.Popen(cmd, cwd=str(assets_dir), stdout=stdout_file, stderr=subprocess.STDOUT)
 
     try:
         hwnd = find_app_window(proc.pid, timeout=12.0)
         if not hwnd:
             print("Failed to locate application window.")
             proc.terminate()
+            stdout_file.close()
             sys.exit(1)
 
         print(f"Found application window (HWND: {hwnd}). Running dynamic trajectory test ({args.duration}s)...")
         user32.SetForegroundWindow(hwnd)
         user32.SetFocus(hwnd)
+        unfocus_imgui(hwnd)
         start_time = time.time()
         last_capture = 0.0
+        last_nav = -1.0
         frame_idx = 0
         triggered_actions = set()
 
@@ -200,66 +217,72 @@ def main():
                     frame_idx += 1
                 last_capture = elapsed
 
-            # Discrete dynamic actions at designated timeline events:
-            # At t=3.0s: Cannonball shot #1 into crate stacks (VK_SPACE)
-            if elapsed >= 3.0 and "cannon_1" not in triggered_actions:
-                send_key(hwnd, VK_SPACE, 0.08)
+            # One-shot Spacebar cannonball shots into cascading 3D models & crates:
+            if elapsed >= 24.0 and "cannon_1" not in triggered_actions:
                 triggered_actions.add("cannon_1")
-                print(f"[{elapsed:.1f}s] ACTION: Fired Spacebar cannonball #1 into crate stacks (VK_SPACE)")
-
-            # At t=8.0s: Cannonball shot #2 into rolling ball cascade (VK_SPACE)
-            if elapsed >= 8.0 and "cannon_2" not in triggered_actions:
+                print(f"[{elapsed:.1f}s] Firing Spacebar cannonball #1 into cascading 3D models & crates")
                 send_key(hwnd, VK_SPACE, 0.08)
+
+            if elapsed >= 26.5 and "cannon_2" not in triggered_actions:
                 triggered_actions.add("cannon_2")
-                print(f"[{elapsed:.1f}s] ACTION: Fired Spacebar cannonball #2 into rolling ball cascade (VK_SPACE)")
-
-            # At t=15.0s: Cannonball shot #3 into debris field (VK_SPACE)
-            if elapsed >= 15.0 and "cannon_3" not in triggered_actions:
+                print(f"[{elapsed:.1f}s] Firing Spacebar cannonball #2 into cascading 3D models & crates")
                 send_key(hwnd, VK_SPACE, 0.08)
-                triggered_actions.add("cannon_3")
-                print(f"[{elapsed:.1f}s] ACTION: Fired Spacebar cannonball #3 into debris field (VK_SPACE)")
 
-            # At t=22.0s: Cannonball shot #4 into scattered debris field (VK_SPACE)
-            if elapsed >= 22.0 and "cannon_4" not in triggered_actions:
-                send_key(hwnd, VK_SPACE, 0.08)
-                triggered_actions.add("cannon_4")
-                print(f"[{elapsed:.1f}s] ACTION: Fired Spacebar cannonball #4 into scattered debris field (VK_SPACE)")
+            # 5-phase 35s calibrated camera trajectory (initial camera at (0, 6.2, 30.0) looking -Z):
+            # Phase 1 (0-7s): Move close to pad & lower y -> 2.2m to inspect ball & prop ground contacts
+            # Phase 2 (7-15s): Pan left (VK_LEFT, VK_W) -> inspect hillside undulations, Boulder_00 & Torus_00 on Ramp_Left
+            # Phase 3 (15-23s): Pan right (VK_RIGHT) -> inspect Ramp_Right, Crystal, Glider, Rook & right hills
+            # Phase 4 (23-29s): Re-center & fire Spacebar cannonballs (24.0s & 26.5s) into cascading 3D models & crates
+            # Phase 5 (29-35s): Pull back & elevate -> wide terrain overview of rolling hills & continuous 3D model stream
+            if elapsed - last_nav >= 0.45:
+                last_nav = elapsed
+                if 0.0 <= elapsed < 7.0:
+                    if elapsed < 2.2:
+                        # 4 steps: y 6.2 -> 2.2, z 30 -> 26
+                        send_key(hwnd, VK_S, 0.03)
+                        send_key(hwnd, VK_UP, 0.03)
+                    elif elapsed < 4.5:
+                        # 5 steps: z 26 -> 21 close-up on ground pad contacts
+                        send_key(hwnd, VK_UP, 0.03)
+                    else:
+                        # Subtle lateral close-up sweep across resting balls, crates, and rooks
+                        send_key(hwnd, VK_D, 0.03)
+                elif 7.0 <= elapsed < 15.0:
+                    if elapsed < 10.6:
+                        # Elevate y 2.2 -> ~9.2, yaw left (+0.1 rad/step -> +0.7 rad) toward left hills & Ramp_Left
+                        send_key(hwnd, VK_W, 0.03)
+                        send_key(hwnd, VK_LEFT, 0.03)
+                    else:
+                        # Pull slightly back & strafe left to frame rolling hills + Prop_Boulder_00 + Ramp_Left
+                        send_key(hwnd, VK_DOWN, 0.03)
+                        send_key(hwnd, VK_A, 0.03)
+                elif 15.0 <= elapsed < 23.0:
+                    if elapsed < 21.0:
+                        # Pan smoothly right across center toward Ramp_Right, Crystal, Glider, Rook & right hills
+                        send_key(hwnd, VK_RIGHT, 0.03)
+                        send_key(hwnd, VK_D, 0.03)
+                    else:
+                        send_key(hwnd, VK_UP, 0.03)
+                elif 23.0 <= elapsed < 29.0:
+                    if elapsed < 24.0:
+                        # Swing aim back toward center arena before cannonball #1
+                        send_key(hwnd, VK_LEFT, 0.03)
+                        send_key(hwnd, VK_A, 0.03)
+                    elif elapsed < 26.4:
+                        send_key(hwnd, VK_LEFT, 0.03)
+                        send_key(hwnd, VK_S, 0.02)
+                    else:
+                        send_key(hwnd, VK_DOWN, 0.03)
+                elif 29.0 <= elapsed <= 35.0:
+                    # Pull back to wide terrain overview inspecting rolling hills & continuous mixed stream
+                    if elapsed < 32.5:
+                        send_key(hwnd, VK_DOWN, 0.03)
+                        send_key(hwnd, VK_DOWN, 0.03)
+                        send_key(hwnd, VK_W, 0.02)
+                    else:
+                        send_key(hwnd, VK_DOWN, 0.03)
 
-            # At t=28.0s: Cannonball shot #5 into secondary cascade (VK_SPACE)
-            if elapsed >= 28.0 and "cannon_5" not in triggered_actions:
-                send_key(hwnd, VK_SPACE, 0.08)
-                triggered_actions.add("cannon_5")
-                print(f"[{elapsed:.1f}s] ACTION: Fired Spacebar cannonball #5 into secondary cascade (VK_SPACE)")
-
-            # Cinematic swooping camera navigation tracking kinetic cascade & debris:
-            step_pulse = (int(elapsed * 10) % 3 == 0)
-            if step_pulse:
-                if 0.0 <= elapsed < 3.0:
-                    # Swoop forward and track falling, bouncing balls descending ramps
-                    send_key(hwnd, VK_UP, 0.04)
-                    send_key(hwnd, VK_S, 0.04)
-                elif 3.0 <= elapsed < 8.0:
-                    # Zoom in on crate stacks impact and pan across crate explosion debris
-                    send_key(hwnd, VK_UP, 0.04)
-                    send_key(hwnd, VK_D, 0.05)  # Lateral pan across debris field
-                elif 8.0 <= elapsed < 15.0:
-                    # Crane ascent tracking rolling ball cascade & scattering spheres
-                    send_key(hwnd, VK_W, 0.04)
-                    send_key(hwnd, VK_LEFT, 0.05)  # Track flying spheres and cascade
-                elif 15.0 <= elapsed < 22.0:
-                    # Sweep around arena to observe continuous cascade scattering in debris field
-                    send_key(hwnd, VK_RIGHT, 0.04)
-                    send_key(hwnd, VK_UP, 0.04)
-                elif 22.0 <= elapsed < 28.0:
-                    # Orbiting inspection of new preset layout and dynamic cascade
-                    send_key(hwnd, VK_LEFT, 0.05)
-                    send_key(hwnd, VK_W, 0.04)
-                elif 28.0 <= elapsed <= 35.0:
-                    # Overview pull-back sweeping across entire arena to verify kinetic stability
-                    send_key(hwnd, VK_DOWN, 0.04)
-                    send_key(hwnd, VK_W, 0.04)
-
-            time.sleep(0.08)
+            time.sleep(0.05)
 
         print("Testing complete. Sending close signal...")
         send_key(hwnd, VK_ESCAPE, 0.1)
@@ -268,11 +291,31 @@ def main():
         if proc.poll() is None:
             proc.terminate()
             proc.wait()
+        stdout_file.close()
+
+    # Parse stdout log for floor tunneling defect detection
+    tunnel_events = 0
+    if stdout_log_path.exists():
+        with open(stdout_log_path, "r", encoding="utf-8", errors="ignore") as f:
+            for line in f:
+                if "Floor tunneling detected:" in line:
+                    import re
+                    m = re.search(r"Floor tunneling detected:\s*(\d+)", line)
+                    if m:
+                        tunnel_events += int(m.group(1))
+                    else:
+                        tunnel_events += 1
+
+    print(f"Floor tunneling containment check: {'PASS (0 defects)' if tunnel_events == 0 else f'FAIL ({tunnel_events} defects)'}")
 
     # Analyze captured frames
     from analyze_captures import analyze_directory
-    report = analyze_directory(out_dir)
+    report = analyze_directory(out_dir, floor_tunneling_count=tunnel_events)
+    print(f"Output directory: {out_dir}")
+    print(f"Overall verdict: {report.get('overall_verdict', 'UNKNOWN')}")
     print("Interactive visual testing session finished.")
+    if report.get("overall_verdict") == "FAIL":
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

@@ -82,11 +82,18 @@ void GL3SceneGraphRenderer::walk_render(Node* node) {
 		}
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, texture_id);
-		glUniform1i(glGetUniformLocation(shader_program, "diffuseTexture"), 0);
+		GLint tex_loc = glGetUniformLocation(shader_program, "diffuseTexture");
+		if (tex_loc >= 0) {
+			glUniform1i(tex_loc, 0);
+		}
 	} else if (node->type == NodeType::Transform) {
 		TransformNode* tn = (TransformNode*) node;
-		glUniformMatrix4fv(matrix_uniform_location, 1, GL_FALSE,
-				glm::value_ptr(tn->matrix));
+		assert(tn);
+		GLint matrix_loc = static_cast<GLint>(matrix_uniform_location);
+		if (matrix_loc >= 0) {
+			glUniformMatrix4fv(matrix_loc, 1, GL_FALSE,
+					glm::value_ptr(tn->matrix));
+		}
 	}
 	for (std::vector<Node*>::iterator it = node->children.begin();
 			it != node->children.end(); ++it) {
@@ -168,29 +175,43 @@ GL3SceneGraphRenderer::GL3SceneGraphRenderer(std::map<std::string, Image*>& imag
 					"	vec3 specular = 0.35 * spec * lightColor;										\n"
 					"																					\n"
 					"	vec3 result = (ambient + diffuse + specular);									\n"
-					"	color = texture(diffuseTexture, texcoord)										\n"
-					"		* vec4(result, 1.0);														\n"
+					"	vec4 texColor = texture(diffuseTexture, texcoord);								\n"
+					"	vec3 litColor = texColor.rgb * result;											\n"
+					"	float dist = length(fragPos);													\n"
+					"	float fogFactor = clamp((dist - 42.0) / 55.0, 0.0, 0.75);						\n"
+					"	vec3 fogColor = vec3(0.55, 0.68, 0.82);											\n"
+					"	color = vec4(mix(litColor, fogColor, fogFactor), texColor.a);					\n"
 					"}																					\n";
 
 	shader_program = createProgram(vertex_shader_src, fragment_shader_src);
 
 	// Uniform buffer object
 	binding_point_index = 0;
-	transform_block_id = glGetUniformBlockIndex(shader_program,
-			"TransformBlock");
-	glUniformBlockBinding(shader_program, transform_block_id,
-			binding_point_index);
-	glGetActiveUniformBlockiv(shader_program, transform_block_id,
-			GL_UNIFORM_BLOCK_DATA_SIZE, &uniform_transform_buffer_block_size);
-	glGenBuffers(1, &uniform_transform_buffer_id);
-	glBindBuffer(GL_UNIFORM_BUFFER, uniform_transform_buffer_id);
-	glBufferData(GL_UNIFORM_BUFFER, uniform_transform_buffer_block_size, NULL,
-			GL_DYNAMIC_DRAW);
-	glBindBuffer(GL_UNIFORM_BUFFER, 0);
-	glBindBufferBase(GL_UNIFORM_BUFFER, binding_point_index,
-			uniform_transform_buffer_id);
+	transform_block_id = GL_INVALID_INDEX;
+	uniform_transform_buffer_block_size = 0;
+	uniform_transform_buffer_id = 0;
+	matrix_uniform_location = static_cast<GLuint>(-1);
+	if (shader_program != 0) {
+		transform_block_id = glGetUniformBlockIndex(shader_program,
+				"TransformBlock");
+		if (transform_block_id != GL_INVALID_INDEX) {
+			glUniformBlockBinding(shader_program, transform_block_id,
+					binding_point_index);
+			glGetActiveUniformBlockiv(shader_program, transform_block_id,
+					GL_UNIFORM_BLOCK_DATA_SIZE, &uniform_transform_buffer_block_size);
+			if (uniform_transform_buffer_block_size > 0) {
+				glGenBuffers(1, &uniform_transform_buffer_id);
+				glBindBuffer(GL_UNIFORM_BUFFER, uniform_transform_buffer_id);
+				glBufferData(GL_UNIFORM_BUFFER, uniform_transform_buffer_block_size, NULL,
+						GL_DYNAMIC_DRAW);
+				glBindBuffer(GL_UNIFORM_BUFFER, 0);
+				glBindBufferBase(GL_UNIFORM_BUFFER, binding_point_index,
+						uniform_transform_buffer_id);
+			}
+		}
 
-	matrix_uniform_location = glGetUniformLocation(shader_program, "matrix");
+		matrix_uniform_location = static_cast<GLuint>(glGetUniformLocation(shader_program, "matrix"));
+	}
 }
 
 GL3SceneGraphRenderer::~GL3SceneGraphRenderer() {
@@ -232,7 +253,7 @@ GL3SceneGraphRenderer::~GL3SceneGraphRenderer() {
 }
 
 void GL3SceneGraphRenderer::render(Node* node, Camera* camera) {
-	if (0 == node)
+	if (nullptr == node || nullptr == camera || shader_program == 0)
 		return;
 	glUseProgram(shader_program);
 	walk_init_buffers(node);
@@ -241,18 +262,29 @@ void GL3SceneGraphRenderer::render(Node* node, Camera* camera) {
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
 	glCullFace(GL_BACK);
-	glBindBuffer(GL_UNIFORM_BUFFER, uniform_transform_buffer_id);
-	GLint projection_offset = 0;
-	GLint modelview_offset = sizeof(glm::mat4);
-	glBufferSubData(GL_UNIFORM_BUFFER, projection_offset, sizeof(glm::mat4),
-			glm::value_ptr(camera->projection_matrix));
-	glBufferSubData(GL_UNIFORM_BUFFER, modelview_offset, sizeof(glm::mat4),
-			glm::value_ptr(camera->modelview_matrix));
-	glBindBuffer(GL_UNIFORM_BUFFER, 0);
+	if (uniform_transform_buffer_id != 0) {
+		glBindBuffer(GL_UNIFORM_BUFFER, uniform_transform_buffer_id);
+		GLint projection_offset = 0;
+		GLint modelview_offset = sizeof(glm::mat4);
+		glBufferSubData(GL_UNIFORM_BUFFER, projection_offset, sizeof(glm::mat4),
+				glm::value_ptr(camera->projection_matrix));
+		glBufferSubData(GL_UNIFORM_BUFFER, modelview_offset, sizeof(glm::mat4),
+				glm::value_ptr(camera->modelview_matrix));
+		glBindBuffer(GL_UNIFORM_BUFFER, 0);
+	}
+
+	GLint matrix_loc = static_cast<GLint>(matrix_uniform_location);
+	if (matrix_loc >= 0) {
+		glm::mat4 identity(1.0f);
+		glUniformMatrix4fv(matrix_loc, 1, GL_FALSE, glm::value_ptr(identity));
+	}
 
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, default_texture_id);
-	glUniform1i(glGetUniformLocation(shader_program, "diffuseTexture"), 0);
+	GLint tex_loc = glGetUniformLocation(shader_program, "diffuseTexture");
+	if (tex_loc >= 0) {
+		glUniform1i(tex_loc, 0);
+	}
 
 	walk_render(node);
 

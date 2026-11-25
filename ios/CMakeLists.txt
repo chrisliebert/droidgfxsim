@@ -106,6 +106,9 @@ endif()
 if(EXISTS "${REPO_ROOT}/native/src/graphics/scene_presets.cc")
     list(APPEND IOS_SOURCES "${REPO_ROOT}/native/src/graphics/scene_presets.cc")
 endif()
+if(EXISTS "${REPO_ROOT}/native/src/physics/terrain.cc")
+    list(APPEND IOS_SOURCES "${REPO_ROOT}/native/src/physics/terrain.cc")
+endif()
 
 add_executable(DroidGfxSim MACOSX_BUNDLE ${IOS_SOURCES} ${ASSET_FILES})
 

@@ -1,10 +1,8 @@
 <?xml version="1.0" ?>
 <WavefrontFile filename="models.obj">
-	<!-- Static Arena & Platforms -->
-	<PhysicsNode name="Arena_Floor" mass="0.0">
-		<CollisionShape width="30" height="50" length="30"
-			offset_x="0" offset_y="-50" offset_z="0">Box</CollisionShape>
-	</PhysicsNode>
+	<!-- Heightmap Terrain & Static Platforms -->
+	<Terrain name="Arena_Terrain" heightmap="terrain_heightmap.png" texture="terrain_diffuse.png"
+		width="81" length="81" scale_x="1.0" scale_z="1.0" min_height="-1.6" max_height="6.9" />
 	<PhysicsNode name="Upper_Platform" mass="0.0">
 		<CollisionShape>ConvexHull</CollisionShape>
 	</PhysicsNode>
@@ -157,5 +155,37 @@
 	<PhysicsNode name="Barrel_03" mass="2.5">
 		<CollisionShape radius="0.7" height="1.8"
 			offset_x="0" offset_y="0" offset_z="0">Cylinder</CollisionShape>
+	</PhysicsNode>
+
+	<!-- Dynamic Detailed 3D Props -->
+	<PhysicsNode name="Prop_Crystal_00" mass="2.2">
+		<CollisionShape>ConvexHull</CollisionShape>
+	</PhysicsNode>
+	<PhysicsNode name="Prop_Crystal_01" mass="2.2">
+		<CollisionShape>ConvexHull</CollisionShape>
+	</PhysicsNode>
+	<PhysicsNode name="Prop_Boulder_00" mass="4.0">
+		<CollisionShape>ConvexHull</CollisionShape>
+	</PhysicsNode>
+	<PhysicsNode name="Prop_Boulder_01" mass="4.0">
+		<CollisionShape>ConvexHull</CollisionShape>
+	</PhysicsNode>
+	<PhysicsNode name="Prop_Rook_00" mass="3.0">
+		<CollisionShape>ConvexHull</CollisionShape>
+	</PhysicsNode>
+	<PhysicsNode name="Prop_Rook_01" mass="3.0">
+		<CollisionShape>ConvexHull</CollisionShape>
+	</PhysicsNode>
+	<PhysicsNode name="Prop_Torus_00" mass="2.4">
+		<CollisionShape major_radius="0.72" minor_radius="0.24" segments="8" axis="x">CompoundTorus</CollisionShape>
+	</PhysicsNode>
+	<PhysicsNode name="Prop_Torus_01" mass="2.4">
+		<CollisionShape major_radius="0.72" minor_radius="0.24" segments="8" axis="x">CompoundTorus</CollisionShape>
+	</PhysicsNode>
+	<PhysicsNode name="Prop_Glider_00" mass="2.0">
+		<CollisionShape>ConvexHull</CollisionShape>
+	</PhysicsNode>
+	<PhysicsNode name="Prop_Glider_01" mass="2.0">
+		<CollisionShape>ConvexHull</CollisionShape>
 	</PhysicsNode>
 </WavefrontFile>

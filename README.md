@@ -19,12 +19,14 @@
 
 ## ⚡ 10-Second Recruiter Hook
 
-`droidgfxsim` is a modular, high-performance cross-platform 3D graphics and physics simulation engine authored in modern **C++20**. Designed as a production-grade portfolio centerpiece, it showcases real-time directional soft shadows ($3\times3$ PCF), tactile rigid-body spring dragging, continuous collision detection (CCD), atomic runtime shader hot-reloading, exact $O(N)$ Welzl bounding spheres, and in-engine Dear ImGui telemetry.
+`droidgfxsim` is a modular, high-performance cross-platform 3D graphics and physics simulation engine authored in modern **C++20**. Designed as a production-grade portfolio centerpiece, it showcases an `81×81` `btHeightfieldTerrainShape` heightmap terrain, custom convex/compound 3D prop archetypes with exact visual-to-physics scale parity, real-time directional soft shadows ($3\times3$ PCF), tactile rigid-body spring dragging, continuous collision detection (CCD), atomic runtime shader hot-reloading, exact $O(N)$ Welzl bounding spheres, and in-engine Dear ImGui telemetry.
 
 ![Simulation Screenshot](screenshot.png)
 
 ### Key Engineering Highlights
 - 🌋 **Next-Gen Vulkan 1.3 Architecture (`--vulkan`):** Modern low-overhead explicit rendering backend alongside OpenGL 3.3 and GLES 2.0. Explicit physical device selection, dedicated graphics/compute queues, two-tier memory model (Host-visible staging buffer mapped to Device-local VRAM), pipeline barriers, and pre-compiled SPIR-V shaders.
+- 🏔️ **Heightmap Terrain Isomorphism & Atmospheric Perspective:** `81×81` Bullet `btHeightfieldTerrainShape` arena terrain (`terrain_heightmap.png`, $X, Z \in [-40, +40]\,\text{m}$, $1.0\,\text{m}$ cell spacing, $Y \in [-1.6, +6.9]\,\text{m}$) paired with a contour-mapped `1024×1024` PBR texture (`terrain_diffuse.png`), exact diagonal triangle matching (`4.29e-6 m` raycast parity), terrain-aware tunneling detection, and Rayleigh horizon atmospheric fog (`42`–`97 m`).
+- 💎 **Custom 3D Model Archetypes & Visual-Physics Scale Parity (`< 1e-7 m`):** 5 strict-CCW custom 3D prop types (`Crystal`, `Boulder`, `Rook`, 8-sphere `btCompoundShape` `Torus` ring, and `Glider`) textured with `1024×1024` PBR maps (`texture_rock.png`, `texture_gold.png`, `texture_ruby.png`), plus exact cloned-mesh vertex scaling (`scale = target / src_extent`) and Welzl bounding sphere recomputation guaranteeing visual-to-physics scale parity (`5.96e-8 m` max delta).
 - 🌊 **Continuous Aerial Cascade & Multi-Tier Restitution Scattering:** 16-sphere multi-tier dynamic cascade staggered vertically up to $60\,\text{m}$ with boosted coefficient of restitution ($\epsilon = 0.82$, conserving $67.2\%$ kinetic energy per bounce). Interactive Continuous Aerial Cascade Mode (`C` key toggle and ImGui telemetry controls) injecting perpetual kinetic energy, multi-frequency physical dispersion, and high-velocity ricochets.
 - 💥 **Physics Destruction & Dynamic Constraints:** 4 distinct physical presets including a 34-block Jenga demolition tower, a suspended wrecking ball pendulum, rolling compound shapes, and a 500-rigid-body stress test.
 - 🎯 **Tactile Raycast Manipulation & Projectiles:** 3D unprojected mouse raycast picking with dynamic `btPoint2PointConstraint` dragging; camera-launched cannonballs ($35\,\text{m/s}$) with continuous collision detection (`setCcdMotionThreshold`) to prevent tunneling.
@@ -32,6 +34,7 @@
 - ☀️ **Real-Time Directional Soft Shadows ($3\times3$ PCF):** $2048\times2048$ depth FBO, front-face culling to eliminate shadow acne, slope-scaled depth bias ($\text{bias} = \max(0.005 \cdot (1 - \mathbf{n} \cdot \mathbf{l}), 0.0005)$), and 9-tap Percentage-Closer Filtering.
 - 📊 **In-Engine Dear ImGui Telemetry HUD:** Real-time frametime profiler graph, active rigid body counter, culled vs rendered mesh statistics, and interactive sliders for gravity, restitution, friction coefficients, and simulation time-scale ($0.1\times$ to $2.0\times$).
 - 🔄 **Non-Crashing Atomic Shader Hot-Reloading:** File-based shaders (`standard.vert/frag`, `shadow.vert/frag`) reload dynamically (`R` key) with staging compilation and syntax error validation that preserves active shaders on errors.
+- 🛡️ **Engine-Wide Continuous Collision Detection (CCD) & Sub-Surface Containment:** Swept-sphere continuous collision detection configured across all dynamic rigid bodies (`setCcdMotionThreshold`, `setCcdSweptSphereRadius`), static body invariance eliminating teleportation defects, and real-time floor containment verification (`getFloorTunnelingCount()`) mathematically proven to eliminate floor tunneling and subterranean penetration under terminal velocities.
 - 🛡️ **Modern C++20 RAII & Memory Arena:** Strict ownership via `std::unique_ptr`, 5 core C++20 concepts (`RenderBackend`, `SpatialEntity`, `BoundingVolume`, `CollisionReceiver`, `LinearMemoryResource`), and a 64-byte cache-aligned linear `MemoryArena` with RAII `ArenaScope` marker rewinding.
 
 ---
@@ -40,7 +43,7 @@
 
 | Input / Key | Action / Functionality | Subsystem |
 | :--- | :--- | :--- |
-| **C** | Toggle **Continuous Aerial Cascade Mode** — streams dynamic rigid bodies from overhead sky spawner with high-restitution scatter | `Simulation` / `Application` (L3) |
+| **C** | Toggle **Continuous Laminar Cascade Mode** — streams a steady flow of non-exploding objects down alternating twin chute ramps ($X = \pm 8.0\,\text{m}$) | `Simulation` / `Application` (L3) |
 | **Spacebar** | **Fire Cannonball Projectile** — launch $5\,\text{kg}$ dynamic sphere at $35.0\,\text{m/s}$ along camera forward vector with CCD and dynamic spark bursts | `ProjectileSpawner` (L3) |
 | **Number 1** | Load **Jenga Demolition Tower** Preset (34 dynamic blocks, stacking friction stability) | `ScenePresets` (L3) |
 | **Number 2** | Load **Wrecking Ball Pendulum** Preset (suspended rigid pendulum constraint & destructible pillars) | `ScenePresets` (L3) |

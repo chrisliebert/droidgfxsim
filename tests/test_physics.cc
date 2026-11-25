@@ -1,5 +1,12 @@
 #include "test_helpers.h"
 #include "physics/simulation.h"
+#include "physics/terrain.h"
+#include "common/asset_manager.hpp"
+#include "application/application.h"
+#include <algorithm>
+#include <cmath>
+#include <cstdlib>
+#include <memory>
 #include <vector>
 
 // Derived test harness to expose protected Simulation methods and provide
@@ -9,19 +16,6 @@ public:
     using Simulation::addPhysicsNode;
     using Simulation::addPhysicsBoxNode;
     using Simulation::addPhysicsConvexHullNode;
-
-    void addPhysicsSphereNode(TransformNode* trans_node, float mass, float radius,
-                              float offset_x = 0.0f, float offset_y = 0.0f, float offset_z = 0.0f) {
-        btSphereShape* sphere_shape = new btSphereShape(radius);
-        addPhysicsNode(trans_node, sphere_shape, mass, offset_x, offset_y, offset_z);
-    }
-
-    void addPhysicsCylinderNode(TransformNode* trans_node, float mass, float radius, float height,
-                                float offset_x = 0.0f, float offset_y = 0.0f, float offset_z = 0.0f) {
-        // Bullet btCylinderShape has its default symmetry axis along Y
-        btCylinderShape* cylinder_shape = new btCylinderShape(btVector3(radius, height * 0.5f, radius));
-        addPhysicsNode(trans_node, cylinder_shape, mass, offset_x, offset_y, offset_z);
-    }
 };
 
 int runPhysicsTests() {
@@ -506,6 +500,8 @@ int runPhysicsTests() {
             ASSERT_TRUE(body != nullptr);
             body->setRestitution(0.80f);
             body->setFriction(0.2f);
+            body->setDamping(0.0f, 0.0f);
+            body->setRollingFriction(0.0f);
             // Enable continuous collision detection to eliminate tunneling under high cascade velocities
             body->setCcdMotionThreshold(0.1f);
             body->setCcdSweptSphereRadius(0.3f);
@@ -577,6 +573,340 @@ int runPhysicsTests() {
 
         // Assert kinetic energy is maintained through multiple bounces
         ASSERT_TRUE(total_final_ke > 5.0f);
+    }
+
+    // =========================================================================
+    // Test 9: Attenuated Restitution & Laminar Chute Non-Explosive Decay
+    // =========================================================================
+    {
+        PhysicsTestSimulation sim;
+
+        // Static ground arena with default attenuated restitution
+        scenegraph::TransformNode ground_node;
+        ground_node.name = "Arena_Floor";
+        ground_node.matrix = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
+        sim.addPhysicsBoxNode(&ground_node, 0.0f, 20.0f, 0.2f, 20.0f);
+
+        btRigidBody* floor_body = sim.rigid_bodies["Arena_Floor"];
+        ASSERT_TRUE(floor_body != nullptr);
+        ASSERT_TRUE(floor_body->getRestitution() <= 0.25f);
+        ASSERT_TRUE(floor_body->getFriction() >= 0.45f);
+
+        // Dynamic falling sphere with engine defaults (attenuated restitution, rolling friction, damping)
+        scenegraph::TransformNode sphere_node;
+        sphere_node.name = "ChuteSphere";
+        sphere_node.matrix = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 8.0f, 0.0f));
+        sim.addPhysicsSphereNode(&sphere_node, 2.0f, 0.5f);
+
+        btRigidBody* sphere_body = sim.rigid_bodies["ChuteSphere"];
+        ASSERT_TRUE(sphere_body != nullptr);
+        ASSERT_TRUE(sphere_body->getRestitution() <= 0.30f);
+        ASSERT_TRUE(sphere_body->getRollingFriction() >= 0.05f);
+
+        // Step simulation for 180 steps (3 seconds at 60Hz)
+        float max_rebound_vy = 0.0f;
+        for (int step = 0; step < 180; ++step) {
+            sim.dynamics_world->stepSimulation(1.0f / 60.0f, 10);
+            btVector3 vel = sphere_body->getLinearVelocity();
+            if (vel.y() > max_rebound_vy) {
+                max_rebound_vy = vel.y();
+            }
+        }
+
+        // With attenuated restitution (e <= 0.28, floor e = 0.20), impact kinetic energy is absorbed
+        // Rebound upward velocity is subdued (vy < 1.5 m/s, unlike explosive bounce > 8 m/s)
+        ASSERT_TRUE(max_rebound_vy < 1.5f);
+
+        // Verify resting stability near y = 0.7m (0.2m floor half-height + 0.5m radius)
+        btTransform final_trans;
+        sphere_body->getMotionState()->getWorldTransform(final_trans);
+        ASSERT_TRUE(final_trans.getOrigin().y() >= 0.6f && final_trans.getOrigin().y() <= 0.85f);
+
+        // Velocity has decayed to near zero (no endless bouncing or vibrating)
+        btVector3 final_vel = sphere_body->getLinearVelocity();
+        ASSERT_TRUE(final_vel.length() < 0.2f);
+    }
+
+    // =========================================================================
+    // Test 10: Complete Application Scene Arena_Terrain Containment & Static Invariance
+    // =========================================================================
+    {
+        Application app;
+        ASSERT_TRUE(app.simulation != nullptr);
+        ASSERT_TRUE(app.simulation->dynamics_world != nullptr);
+        ASSERT_TRUE(app.simulation->terrain != nullptr);
+
+        // Verify Arena_Terrain initial static position & properties
+        auto terrain_it = app.simulation->rigid_bodies.find("Arena_Terrain");
+        ASSERT_TRUE(terrain_it != app.simulation->rigid_bodies.end());
+        if (terrain_it != app.simulation->rigid_bodies.end() && terrain_it->second != nullptr) {
+            ASSERT_TRUE(terrain_it->second->isStaticObject());
+            btTransform terrain_trans;
+            if (terrain_it->second->getMotionState()) {
+                terrain_it->second->getMotionState()->getWorldTransform(terrain_trans);
+            } else {
+                terrain_trans = terrain_it->second->getWorldTransform();
+            }
+            const float expected_origin_y = 0.5f * (-1.6f + 6.9f);
+            ASSERT_NEAR(terrain_trans.getOrigin().y(), expected_origin_y, 1e-3f);
+            ASSERT_NEAR(0.5f * (app.simulation->terrain->getMinHeight() +
+                                app.simulation->terrain->getMaxHeight()),
+                        expected_origin_y, 1e-3f);
+        }
+
+        // Step 1: Base scene containment across 300 simulation steps (5s at 60Hz)
+        app.cascade_mode_active = false;
+        int base_tunnel_events = 0;
+        for (int frame = 0; frame < 300; ++frame) {
+            app.step();
+            int tunneling = app.getFloorTunnelingCount();
+            if (tunneling > 0) {
+                base_tunnel_events += tunneling;
+            }
+        }
+        ASSERT_TRUE(base_tunnel_events == 0);
+
+        // Verify Arena_Terrain remained perfectly immovable at (0, 2.65, 0)
+        if (terrain_it != app.simulation->rigid_bodies.end() && terrain_it->second != nullptr) {
+            btTransform terrain_trans;
+            if (terrain_it->second->getMotionState()) {
+                terrain_it->second->getMotionState()->getWorldTransform(terrain_trans);
+            } else {
+                terrain_trans = terrain_it->second->getWorldTransform();
+            }
+            ASSERT_NEAR(terrain_trans.getOrigin().y(), 2.65f, 1e-3f);
+        }
+
+        // Step 2: Dynamic cascade shower containment across 300 simulation steps
+        app.cascade_mode_active = true;
+        int cascade_tunnel_events = 0;
+        for (int frame = 0; frame < 300; ++frame) {
+            app.step();
+            int tunneling = app.getFloorTunnelingCount();
+            if (tunneling > 0) {
+                cascade_tunnel_events += tunneling;
+            }
+        }
+        ASSERT_TRUE(cascade_tunnel_events == 0);
+    }
+
+    // =========================================================================
+    // Test 11: Heightmap Terrain Parity & Ball-Edge Zero-Penetration Invariant
+    // =========================================================================
+    {
+        AssetManager mgr;
+        auto terrain = std::make_unique<droidgfxsim::HeightmapTerrain>();
+        const bool loaded = terrain->loadFromPNG("terrain_heightmap.png", &mgr, 81, 81, 1.0f, 1.0f, -1.6f, 6.9f);
+        ASSERT_TRUE(loaded);
+
+        PhysicsTestSimulation sim;
+        sim.dynamics_world->setGravity(btVector3(0.0f, -9.81f, 0.0f));
+
+        scenegraph::TransformNode terrain_node;
+        terrain_node.name = "Arena_Terrain";
+        btRigidBody* terrain_body = sim.addTerrainNode(&terrain_node, std::move(terrain));
+        ASSERT_TRUE(terrain_body != nullptr);
+        ASSERT_TRUE(sim.terrain != nullptr);
+
+        // Dense coordinate grid covering flat central pad, slopes, hills at x = +-22,
+        // and both u+v <= 1 and u+v > 1 quad diagonal triangles
+        struct SampleCoord { float x; float z; };
+        std::vector<SampleCoord> coords;
+        for (int ix = -32; ix <= 32; ix += 8) {
+            for (int iz = -32; iz <= 32; iz += 8) {
+                coords.push_back({static_cast<float>(ix) + 0.23f, static_cast<float>(iz) + 0.19f});
+                coords.push_back({static_cast<float>(ix) + 0.77f, static_cast<float>(iz) + 0.81f});
+            }
+        }
+        const SampleCoord extra_coords[] = {
+            {0.0f, 0.0f}, {0.0f, 14.0f}, {22.0f, 0.0f}, {-22.0f, 0.0f},
+            {24.0f, 0.0f}, {-24.0f, 0.0f}, {24.0f, 4.0f},
+            {16.35f, 4.25f}, {-18.65f, 6.75f}, {22.15f, -3.45f}, {-22.85f, 5.15f}
+        };
+        for (const auto& c : extra_coords) {
+            coords.push_back(c);
+        }
+
+        for (const auto& c : coords) {
+            const float expected_h = sim.getTerrainHeightAt(c.x, c.z);
+            btVector3 ray_from(c.x, 50.0f, c.z);
+            btVector3 ray_to(c.x, -20.0f, c.z);
+            btCollisionWorld::ClosestRayResultCallback ray_cb(ray_from, ray_to);
+            sim.dynamics_world->rayTest(ray_from, ray_to, ray_cb);
+            ASSERT_TRUE(ray_cb.hasHit());
+            if (ray_cb.hasHit()) {
+                ASSERT_NEAR(expected_h, ray_cb.m_hitPointWorld.y(), 2e-3f);
+            }
+        }
+
+        // Flat structural pad vs hilly side ridges
+        ASSERT_NEAR(sim.getTerrainHeightAt(0.0f, 14.0f), 0.0f, 1e-4f);
+        ASSERT_TRUE(sim.getTerrainHeightAt(24.0f, 0.0f) > 1.3f);
+        ASSERT_TRUE(sim.getTerrainHeightAt(22.0f, 0.0f) > 1.5f);
+        ASSERT_TRUE(sim.getTerrainHeightAt(-24.0f, 0.0f) > 1.5f);
+        ASSERT_TRUE(sim.getTerrainHeightAt(24.0f, 4.0f) > 1.5f);
+
+        // Drop 3 spheres of radii 0.55f, 0.75f, 1.0f onto flat and sloped terrain coordinates
+        struct DropSphereSpec {
+            const char* name;
+            float x;
+            float z;
+            float radius;
+        };
+        const DropSphereSpec drop_specs[3] = {
+            {"TerrainBall_055", 0.0f, 0.0f, 0.55f},
+            {"TerrainBall_075", 16.0f, 4.0f, 0.75f},
+            {"TerrainBall_100", -18.0f, 6.0f, 1.0f}
+        };
+        scenegraph::TransformNode ball_nodes[3];
+        for (int i = 0; i < 3; ++i) {
+            const float h0 = sim.getTerrainHeightAt(drop_specs[i].x, drop_specs[i].z);
+            ball_nodes[i].name = drop_specs[i].name;
+            ball_nodes[i].matrix = glm::translate(
+                glm::mat4(1.0f),
+                glm::vec3(drop_specs[i].x, h0 + drop_specs[i].radius + 4.0f, drop_specs[i].z)
+            );
+            sim.addPhysicsSphereNode(&ball_nodes[i], 2.0f, drop_specs[i].radius);
+        }
+
+        for (int step_idx = 0; step_idx < 180; ++step_idx) {
+            sim.step();
+            for (int i = 0; i < 3; ++i) {
+                btRigidBody* body = sim.rigid_bodies[drop_specs[i].name];
+                ASSERT_TRUE(body != nullptr);
+                if (body != nullptr) {
+                    btTransform trans;
+                    if (body->getMotionState()) {
+                        body->getMotionState()->getWorldTransform(trans);
+                    } else {
+                        trans = body->getWorldTransform();
+                    }
+                    const btVector3 pos = trans.getOrigin();
+                    const float ground_h = sim.getTerrainHeightAt(
+                        static_cast<float>(pos.x()), static_cast<float>(pos.z())
+                    );
+                    ASSERT_TRUE(static_cast<float>(pos.y()) >= ground_h + drop_specs[i].radius - 0.04f);
+                }
+            }
+        }
+
+        // Visual / collision parity check on spawnDynamicDebris sphere archetype
+        Application app;
+        app.cascade_mode_active = false;
+        std::srand(12345);
+        bool found_sphere_debris = false;
+        for (int attempt = 0; attempt < 36 && !found_sphere_debris; ++attempt) {
+            app.spawnDynamicDebris(0.0f, 10.0f, 0.0f, 0.62f, 2.0f);
+            if (!app.spawned_debris_nodes.empty()) {
+                PhysicsNode* pn = app.spawned_debris_nodes.back();
+                if (pn && pn->collision_shape &&
+                    pn->collision_shape->getShapeType() == SPHERE_SHAPE_PROXYTYPE) {
+                    found_sphere_debris = true;
+                    btSphereShape* sphere_shape = static_cast<btSphereShape*>(pn->collision_shape);
+                    ASSERT_NEAR(sphere_shape->getRadius(), 0.62f, 1e-4f);
+                    ASSERT_TRUE(pn->transform_node != nullptr && !pn->transform_node->children.empty());
+                    if (pn->transform_node && !pn->transform_node->children.empty()) {
+                        scenegraph::GeometryNode* geom =
+                            dynamic_cast<scenegraph::GeometryNode*>(pn->transform_node->children[0]);
+                        ASSERT_TRUE(geom != nullptr && !geom->vertex_data.empty());
+                        if (geom && !geom->vertex_data.empty()) {
+                            float max_vert_radius = 0.0f;
+                            for (const auto& v : geom->vertex_data) {
+                                float r = std::sqrt(v.position[0] * v.position[0] +
+                                                    v.position[1] * v.position[1] +
+                                                    v.position[2] * v.position[2]);
+                                if (r > max_vert_radius) {
+                                    max_vert_radius = r;
+                                }
+                            }
+                            ASSERT_NEAR(max_vert_radius, sphere_shape->getRadius(), 1e-3f);
+                        }
+                    }
+                }
+            }
+        }
+        ASSERT_TRUE(found_sphere_debris);
+    }
+
+    // =========================================================================
+    // Test 12: Custom 3D Models & Compound Torus Simulation
+    // =========================================================================
+    {
+        Application app;
+        ASSERT_TRUE(app.simulation != nullptr);
+        ASSERT_TRUE(app.simulation->dynamics_world != nullptr);
+
+        const char* prop_names[5] = {
+            "Prop_Crystal_00",
+            "Prop_Boulder_00",
+            "Prop_Rook_00",
+            "Prop_Torus_00",
+            "Prop_Glider_00"
+        };
+
+        for (const char* name : prop_names) {
+            auto it = app.simulation->rigid_bodies.find(name);
+            ASSERT_TRUE(it != app.simulation->rigid_bodies.end() && it->second != nullptr);
+            if (it != app.simulation->rigid_bodies.end() && it->second != nullptr) {
+                ASSERT_TRUE(!it->second->isStaticObject());
+            }
+        }
+
+        // Verify Prop_Torus_00 uses an 8-sphere btCompoundShape
+        auto torus_it = app.simulation->rigid_bodies.find("Prop_Torus_00");
+        if (torus_it != app.simulation->rigid_bodies.end() && torus_it->second != nullptr) {
+            btCollisionShape* torus_shape = torus_it->second->getCollisionShape();
+            ASSERT_TRUE(torus_shape != nullptr);
+            ASSERT_TRUE(torus_shape->getShapeType() == COMPOUND_SHAPE_PROXYTYPE);
+            if (torus_shape && torus_shape->getShapeType() == COMPOUND_SHAPE_PROXYTYPE) {
+                btCompoundShape* compound = static_cast<btCompoundShape*>(torus_shape);
+                ASSERT_TRUE(compound->getNumChildShapes() == 8);
+                for (int c = 0; c < compound->getNumChildShapes(); ++c) {
+                    ASSERT_TRUE(compound->getChildShape(c) != nullptr);
+                    ASSERT_TRUE(compound->getChildShape(c)->getShapeType() == SPHERE_SHAPE_PROXYTYPE);
+                }
+            }
+        }
+
+        // Verify Prop_Crystal_00 and Prop_Glider_00 use ConvexHull shapes
+        auto crystal_it = app.simulation->rigid_bodies.find("Prop_Crystal_00");
+        if (crystal_it != app.simulation->rigid_bodies.end() && crystal_it->second != nullptr) {
+            ASSERT_TRUE(crystal_it->second->getCollisionShape() != nullptr);
+            ASSERT_TRUE(crystal_it->second->getCollisionShape()->getShapeType() == CONVEX_HULL_SHAPE_PROXYTYPE);
+        }
+        auto glider_it = app.simulation->rigid_bodies.find("Prop_Glider_00");
+        if (glider_it != app.simulation->rigid_bodies.end() && glider_it->second != nullptr) {
+            ASSERT_TRUE(glider_it->second->getCollisionShape() != nullptr);
+            ASSERT_TRUE(glider_it->second->getCollisionShape()->getShapeType() == CONVEX_HULL_SHAPE_PROXYTYPE);
+        }
+
+        int tunnel_events = 0;
+        for (int frame = 0; frame < 120; ++frame) {
+            app.step();
+            tunnel_events += app.getFloorTunnelingCount();
+        }
+        ASSERT_TRUE(tunnel_events == 0);
+
+        for (const char* name : prop_names) {
+            auto it = app.simulation->rigid_bodies.find(name);
+            if (it != app.simulation->rigid_bodies.end() && it->second != nullptr) {
+                btTransform trans;
+                if (it->second->getMotionState()) {
+                    it->second->getMotionState()->getWorldTransform(trans);
+                } else {
+                    trans = it->second->getWorldTransform();
+                }
+                const btVector3 p = trans.getOrigin();
+                const btQuaternion q = trans.getRotation();
+                ASSERT_TRUE(std::isfinite(p.x()) && std::isfinite(p.y()) && std::isfinite(p.z()));
+                ASSERT_TRUE(std::isfinite(q.x()) && std::isfinite(q.y()) &&
+                            std::isfinite(q.z()) && std::isfinite(q.w()));
+                const float floor_h = app.simulation->getTerrainHeightAt(
+                    static_cast<float>(p.x()), static_cast<float>(p.z())
+                );
+                ASSERT_TRUE(static_cast<float>(p.y()) >= floor_h - 0.5f);
+            }
+        }
     }
 
     return failures;

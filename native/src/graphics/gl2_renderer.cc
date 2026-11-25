@@ -69,10 +69,17 @@ void GL2SceneGraphRenderer::walk_render(Node* node) {
 		}
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, texture_id);
-		glUniform1i(glGetUniformLocation(shader_program, "diffuseTexture"), 0);
+		GLint tex_loc = glGetUniformLocation(shader_program, "diffuseTexture");
+		if (tex_loc >= 0) {
+			glUniform1i(tex_loc, 0);
+		}
 	} else if(node->type == NodeType::Transform) {
 		TransformNode* tn = (TransformNode*) node;
-		glUniformMatrix4fv(matrix_uniform_location, 1, GL_FALSE, glm::value_ptr(tn->matrix));
+		assert(tn);
+		GLint matrix_loc = static_cast<GLint>(matrix_uniform_location);
+		if (matrix_loc >= 0) {
+			glUniformMatrix4fv(matrix_loc, 1, GL_FALSE, glm::value_ptr(tn->matrix));
+		}
 	}
 	for(std::vector<Node*>::iterator it = node->children.begin(); it!=node->children.end(); ++it) {
 		Node* child = *it;
@@ -203,12 +210,20 @@ GL2SceneGraphRenderer::GL2SceneGraphRenderer(std::map<std::string, Image*>& imag
 		"	vec3 specular = 0.35 * spec * lightColor;					\n"
 		"																\n"
 		"	vec3 result = (ambient + diffuse + specular);				\n"
-		"	gl_FragColor = texture2D(diffuseTexture, texcoord)			\n"
-		"		* vec4(result, 1.0);									\n"
+		"	vec4 texColor = texture2D(diffuseTexture, texcoord);		\n"
+		"	vec3 litColor = texColor.rgb * result;						\n"
+		"	float dist = length(fragPos);								\n"
+		"	float fogFactor = clamp((dist - 42.0) / 55.0, 0.0, 0.75);	\n"
+		"	vec3 fogColor = vec3(0.55, 0.68, 0.82);						\n"
+		"	gl_FragColor = vec4(mix(litColor, fogColor, fogFactor),		\n"
+		"		texColor.a);											\n"
 		"}																\n";
 
 	shader_program = createProgram(vertex_shader_src, fragment_shader_src);
-	matrix_uniform_location = glGetUniformLocation(shader_program, "matrix");
+	matrix_uniform_location = static_cast<GLuint>(-1);
+	if (shader_program != 0) {
+		matrix_uniform_location = static_cast<GLuint>(glGetUniformLocation(shader_program, "matrix"));
+	}
 }
 
 GL2SceneGraphRenderer::~GL2SceneGraphRenderer() {
@@ -239,7 +254,7 @@ GL2SceneGraphRenderer::~GL2SceneGraphRenderer() {
 }
 
 void GL2SceneGraphRenderer::render(Node* node, Camera* camera) {
-	if(0 == node) return;
+	if(nullptr == node || nullptr == camera || shader_program == 0) return;
 	glUseProgram(shader_program);
 	walk_init_buffers(node);
 	glClearColor(0.55f, 0.68f, 0.82f, 1.0f);
@@ -247,14 +262,28 @@ void GL2SceneGraphRenderer::render(Node* node, Camera* camera) {
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
 	glCullFace(GL_BACK);
-	glUniformMatrix4fv(glGetUniformLocation(shader_program, "projection"), 1,
-			GL_FALSE, glm::value_ptr(camera->projection_matrix));
-	glUniformMatrix4fv(glGetUniformLocation(shader_program, "modelview"), 1,
-			GL_FALSE, glm::value_ptr(camera->modelview_matrix));
+	GLint projection_loc = glGetUniformLocation(shader_program, "projection");
+	if (projection_loc >= 0) {
+		glUniformMatrix4fv(projection_loc, 1, GL_FALSE,
+				glm::value_ptr(camera->projection_matrix));
+	}
+	GLint modelview_loc = glGetUniformLocation(shader_program, "modelview");
+	if (modelview_loc >= 0) {
+		glUniformMatrix4fv(modelview_loc, 1, GL_FALSE,
+				glm::value_ptr(camera->modelview_matrix));
+	}
+	GLint matrix_loc = static_cast<GLint>(matrix_uniform_location);
+	if (matrix_loc >= 0) {
+		glm::mat4 identity(1.0f);
+		glUniformMatrix4fv(matrix_loc, 1, GL_FALSE, glm::value_ptr(identity));
+	}
 
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, default_texture_id);
-	glUniform1i(glGetUniformLocation(shader_program, "diffuseTexture"), 0);
+	GLint tex_loc = glGetUniformLocation(shader_program, "diffuseTexture");
+	if (tex_loc >= 0) {
+		glUniform1i(tex_loc, 0);
+	}
 
 	walk_render(node);
 

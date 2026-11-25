@@ -5,6 +5,7 @@
 
 #include <cassert>
 #include <map>
+#include <memory>
 #include <string>
 
 #include "rapidxml.hpp"
@@ -17,6 +18,7 @@
 #include "graphics/wavefront_factory.h"
 #include "graphics/renderer_interface.h"
 #include "physics/simulation.h"
+#include "physics/terrain.h"
 
 namespace droidgfxsim {
 class RaycastPicker;
@@ -66,6 +68,7 @@ public:
 	float cascade_timer;
 	float cascade_interval;
 	std::vector<PhysicsNode*> spawned_debris_nodes;
+	size_t debris_recycle_index;
 
 	void spawnDynamicDebris(float x, float y, float z, float radius = 0.8f, float mass = 2.0f);
 	void update(float dt = 1.0f / 60.0f);
@@ -83,6 +86,7 @@ public:
 
 	bool loadScenePreset(int preset_index);
 	int getRigidBodyCount() const;
+	int getFloorTunnelingCount() const;
 };
 
 #endif //_APPLICATION_H_

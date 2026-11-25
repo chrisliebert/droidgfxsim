@@ -58,6 +58,10 @@ set(JNI_SOURCES
     ${SRC_LOCATION}/src/application/application.cc
 )
 
+if(EXISTS "${SRC_LOCATION}/src/physics/terrain.cc")
+    list(APPEND JNI_SOURCES "${SRC_LOCATION}/src/physics/terrain.cc")
+endif()
+
 add_library(glappjni SHARED ${JNI_SOURCES})
 
 target_include_directories(glappjni PRIVATE

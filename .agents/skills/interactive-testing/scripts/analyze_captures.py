@@ -18,7 +18,7 @@ from pathlib import Path
 from PIL import Image
 import numpy as np
 
-def analyze_directory(capture_dir: Path) -> dict:
+def analyze_directory(capture_dir: Path, floor_tunneling_count: int = 0) -> dict:
     images = sorted(list(capture_dir.glob("*.png")) + list(capture_dir.glob("*.ppm")))
     if not images:
         print(f"No PNG or PPM frames found in {capture_dir}")
@@ -92,11 +92,14 @@ def analyze_directory(capture_dir: Path) -> dict:
         "mean_kinetic_excitement": round(mean_kinetic, 2),
         "mean_motion_entropy": round(mean_entropy, 4),
         "mean_motion_delta_dm": round(mean_delta_m, 5),
+        "floor_tunneling_events": floor_tunneling_count,
+        "defect_floor_tunneling": bool(floor_tunneling_count > 0),
         "frames": results
     }
 
     # Determine overall status: require >= 70% DYNAMIC_ACTION frames to certify continuous kinetic activity
-    has_fail = any(f["defect_black"] or f["defect_white"] for f in results)
+    # Also require 0 floor tunneling events (defect_floor_tunneling == False)
+    has_fail = any(f["defect_black"] or f["defect_white"] for f in results) or bool(floor_tunneling_count > 0)
     has_warn = any(f["defect_banding_suspect"] for f in results)
     insufficient_dynamic_motion = bool(dynamic_ratio < 0.70)
     summary["defect_insufficient_dynamic_motion"] = insufficient_dynamic_motion
@@ -128,12 +131,14 @@ def analyze_directory(capture_dir: Path) -> dict:
         f"- **Mean Dynamic Motion Entropy**: {mean_entropy:.4f} bits",
         f"- **Mean Optical Motion Delta (ΔM)**: {mean_delta_m:.5f}",
         f"- **Sustained Dynamic Activity (>=70% DYNAMIC_ACTION)**: **{'PASS' if not insufficient_dynamic_motion else 'FAIL'}**",
+        f"- **Floor Tunneling Containment Check**: **{'PASS (0 defects)' if floor_tunneling_count == 0 else f'FAIL ({floor_tunneling_count} tunneling events)'}**",
         f"- **Overall Verdict**: **{overall_verdict}**",
         "",
         "## Dynamic Physics & Kinetic Excitement Summary",
         f"- Physics Simulation Dynamic Activity: **{'ACTIVE' if dynamic_frames > 0 else 'STATIC'}**",
         f"- Dynamic Classification Threshold: $\\Delta M > 0.0003$ (`DYNAMIC_ACTION`)",
         f"- Continuous Kinetic Activity Requirement: $\\ge 70\\%$ frames in `DYNAMIC_ACTION` ({'SATISFIED' if not insufficient_dynamic_motion else 'FAILED'})",
+        f"- Sub-Surface Floor Penetration: **{'ZERO (PASS)' if floor_tunneling_count == 0 else f'{floor_tunneling_count} EVENTS (FAIL)'}**",
         "",
         "## Frame Metrics Table",
         "",
@@ -150,9 +155,9 @@ def analyze_directory(capture_dir: Path) -> dict:
     md_lines.extend([
         "",
         "## Verdict Criteria",
-        "- **PASS**: Dynamic range > 0.10, no black/white stalls (`defect_black`/`defect_white` == False), banding score <= 0.12, dynamic action ratio >= 70% (>= 0.70).",
+        "- **PASS**: Dynamic range > 0.10, no black/white stalls (`defect_black`/`defect_white` == False), banding score <= 0.12, dynamic action ratio >= 70% (>= 0.70), zero floor tunneling (`defect_floor_tunneling` == False).",
         "- **WARN**: Banding suspect detected (score > 0.12).",
-        "- **FAIL**: Blank/white frame, extreme rendering collapse, or insufficient dynamic motion (< 70% DYNAMIC_ACTION frames).",
+        "- **FAIL**: Blank/white frame, extreme rendering collapse, floor tunneling detected (`defect_floor_tunneling` == True), or insufficient dynamic motion (< 70% DYNAMIC_ACTION frames).",
         "- **DYNAMIC_ACTION**: $\\Delta M > 0.0003$, actively evolving rigid-body physics motion.",
         ""
     ])
@@ -167,11 +172,33 @@ def analyze_directory(capture_dir: Path) -> dict:
     print(f"Markdown report saved to {md_report_path}")
     return summary
 
+def parse_floor_tunneling_from_log(log_path: Path) -> int:
+    if not log_path.exists():
+        return 0
+    import re
+    tunnel_events = 0
+    with open(log_path, "r", encoding="utf-8", errors="ignore") as f:
+        for line in f:
+            if "Floor tunneling detected:" in line:
+                m = re.search(r"Floor tunneling detected:\s*(\d+)", line)
+                if m:
+                    tunnel_events += int(m.group(1))
+                else:
+                    tunnel_events += 1
+    return tunnel_events
+
 def main():
     parser = argparse.ArgumentParser(description="Analyze visual frames for rendering defects and dynamic motion entropy")
     parser.add_argument("directory", help="Directory containing captured frames")
+    parser.add_argument("--floor-tunneling-count", type=int, default=None, help="Explicit floor tunneling defect count")
     args = parser.parse_args()
-    analyze_directory(Path(args.directory))
+    capture_dir = Path(args.directory)
+    tunnel_count = args.floor_tunneling_count
+    if tunnel_count is None:
+        tunnel_count = parse_floor_tunneling_from_log(capture_dir / "app_stdout.log")
+    report = analyze_directory(capture_dir, floor_tunneling_count=tunnel_count)
+    if report.get("overall_verdict") == "FAIL":
+        raise SystemExit(1)
 
 if __name__ == "__main__":
     main()

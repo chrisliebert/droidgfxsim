@@ -207,6 +207,9 @@ endif()
 if(EXISTS "${PROJECT_ROOT}/native/src/graphics/scene_presets.cc")
     list(APPEND CORE_SOURCES "${PROJECT_ROOT}/native/src/graphics/scene_presets.cc")
 endif()
+if(EXISTS "${PROJECT_ROOT}/native/src/physics/terrain.cc")
+    list(APPEND CORE_SOURCES "${PROJECT_ROOT}/native/src/physics/terrain.cc")
+endif()
 
 add_library(droidgfxsim_core STATIC ${CORE_SOURCES})
 

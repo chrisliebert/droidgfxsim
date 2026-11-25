@@ -109,6 +109,9 @@ endif()
 if(EXISTS "${REPO_ROOT}/native/src/graphics/scene_presets.cc")
     list(APPEND WASM_SOURCES "${REPO_ROOT}/native/src/graphics/scene_presets.cc")
 endif()
+if(EXISTS "${REPO_ROOT}/native/src/physics/terrain.cc")
+    list(APPEND WASM_SOURCES "${REPO_ROOT}/native/src/physics/terrain.cc")
+endif()
 
 add_executable(droidgfxsim ${WASM_SOURCES})
 
