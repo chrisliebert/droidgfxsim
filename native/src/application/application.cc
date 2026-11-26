@@ -40,6 +40,37 @@ bool detachAndDestroyTransformNode(scenegraph::Node* parent, const std::string& 
 	return false;
 }
 
+float unitRand() {
+	return static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX);
+}
+
+void sampleHillsideSummitSpawn(const Simulation* sim, float radius,
+                               float& rx, float& ry, float& rz, float& vx_small) {
+	// Bias spawns across the left ravine, center hill spur, and right ravine within [-15, +15]
+	static int lane_counter = 0;
+	const int lane = lane_counter % 3;
+	lane_counter++;
+	if (lane == 0) {
+		rx = -15.0f + unitRand() * 10.0f; // [-15.0, -5.0]
+	} else if (lane == 1) {
+		rx = -4.5f + unitRand() * 9.0f;   // [-4.5, +4.5]
+	} else {
+		rx = 5.0f + unitRand() * 10.0f;   // [+5.0, +15.0]
+	}
+	rx = std::clamp(rx, -15.0f, 15.0f);
+	rz = -31.0f + unitRand() * 10.0f;     // [-31.0, -21.0]
+	const float terrain_h = sim ? sim->getTerrainHeightAt(rx, rz) : 14.0f;
+	ry = terrain_h + radius + 0.45f;
+	vx_small = -0.6f + unitRand() * 1.2f;
+}
+
+void applyDownhillVelocity(btRigidBody* body, float vx_small) {
+	if (!body) return;
+	body->setLinearVelocity(btVector3(vx_small, -0.3f, 3.2f));
+	body->setAngularVelocity(btVector3(2.8f, 0.0f, 0.0f));
+	body->activate(true);
+}
+
 } // namespace
 
 scenegraph::Node* Application::loadResources() {
@@ -160,12 +191,13 @@ void Application::parseXMLNode(rapidxml::xml_node<>* my_xml_node,
 			std::string terrain_name("Arena_Terrain");
 			std::string heightmap("terrain_heightmap.png");
 			std::string texture("terrain_diffuse.png");
-			int width = 81;
-			int length = 81;
-			float scale_x = 1.0f;
-			float scale_z = 1.0f;
-			float min_height = -1.6f;
-			float max_height = 6.9f;
+			std::string hide_nodes("Arena_Floor");
+			int width = 121;
+			int length = 121;
+			float scale_x = 0.75f;
+			float scale_z = 0.75f;
+			float min_height = -1.5f;
+			float max_height = 24.0f;
 
 			for (rapidxml::xml_attribute<>* attr = node->first_attribute();
 					attr; attr = attr->next_attribute()) {
@@ -180,6 +212,7 @@ void Application::parseXMLNode(rapidxml::xml_node<>* my_xml_node,
 				else if (aname == "scale_z" && !aval.empty()) scale_z = static_cast<float>(std::atof(aval.c_str()));
 				else if (aname == "min_height" && !aval.empty()) min_height = static_cast<float>(std::atof(aval.c_str()));
 				else if (aname == "max_height" && !aval.empty()) max_height = static_cast<float>(std::atof(aval.c_str()));
+				else if (aname == "hide_nodes") hide_nodes = aval;
 			}
 
 			auto terrain = std::make_unique<droidgfxsim::HeightmapTerrain>();
@@ -191,8 +224,18 @@ void Application::parseXMLNode(rapidxml::xml_node<>* my_xml_node,
 				images.insert(std::make_pair(texture, tex_img));
 			}
 
-			// Remove flat Arena_Floor mesh when heightmap terrain is active (presets without <Terrain> retain Arena_Floor)
-			detachAndDestroyTransformNode(scene_node, "Arena_Floor");
+			// Detach specified legacy flat/platform meshes when heightmap terrain is active
+			if (!hide_nodes.empty()) {
+				std::stringstream hs(hide_nodes);
+				std::string token;
+				while (std::getline(hs, token, ',')) {
+					size_t first = token.find_first_not_of(" \t\r\n");
+					size_t last = token.find_last_not_of(" \t\r\n");
+					if (first != std::string::npos && last != std::string::npos) {
+						detachAndDestroyTransformNode(scene_node, token.substr(first, last - first + 1));
+					}
+				}
+			}
 
 			scenegraph::MaterialNode* mat_terrain = new scenegraph::MaterialNode();
 			mat_terrain->name = "MaterialTerrain";
@@ -241,8 +284,10 @@ void Application::init() {
 		camera = new Camera();
 	}
 	assert(camera);
-	camera->position.y = 6.2f;
-	camera->moveBackward(30.0);
+	camera->position = glm::vec3(0.0f, 6.8f, 32.0f);
+	camera->horizontal_angle = M_PI;
+	camera->vertical_angle = 0.0;
+	camera->aim(0.0, 0.04);
 	camera->update();
 
 	if (simulation && simulation->dynamics_world) {
@@ -277,13 +322,9 @@ void Application::update(float dt) {
 		cascade_timer += dt;
 		if (cascade_timer >= cascade_interval) {
 			cascade_timer = 0.0f;
-			static bool spawn_left = true;
-			float rx = spawn_left ? (-8.0f + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / 0.4f)) - 0.2f)
-			                      : ( 8.0f + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / 0.4f)) - 0.2f);
-			spawn_left = !spawn_left;
-			float ry = 14.8f + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / 1.0f));
-			float rz = -10.0f + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / 1.0f));
-			float rradius = 0.55f + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / 0.3f));
+			float rradius = 0.55f + unitRand() * 0.3f;
+			float rx = 0.0f, ry = 0.0f, rz = 0.0f, vx_small = 0.0f;
+			sampleHillsideSummitSpawn(simulation, rradius, rx, ry, rz, vx_small);
 			float rmass = 2.0f;
 			spawnDynamicDebris(rx, ry, rz, rradius, rmass);
 		}
@@ -307,9 +348,7 @@ void Application::spawnDynamicDebris(float x, float y, float z, float radius, fl
 			if (pn->body->getMotionState()) {
 				pn->body->getMotionState()->setWorldTransform(trans);
 			}
-			pn->body->setLinearVelocity(btVector3(0.0f, -0.8f, 2.5f));
-			pn->body->setAngularVelocity(btVector3(2.5f, 0.0f, 0.0f));
-			pn->body->activate(true);
+			applyDownhillVelocity(pn->body, -0.6f + unitRand() * 1.2f);
 			if (pn->transform_node) {
 				pn->transform_node->matrix = glm::translate(glm::mat4(1.0f), glm::vec3(x, y, z));
 			}
@@ -481,8 +520,7 @@ void Application::spawnDynamicDebris(float x, float y, float z, float radius, fl
 	}
 
 	btRigidBody* body = new btRigidBody(rb_info);
-	body->setLinearVelocity(btVector3(0.0f, -0.8f, 2.5f));
-	body->setAngularVelocity(btVector3(2.5f, 0.0f, 0.0f));
+	applyDownhillVelocity(body, -0.6f + unitRand() * 1.2f);
 
 	body->setCcdMotionThreshold(std::min(0.15f, radius * 0.25f));
 	body->setCcdSweptSphereRadius(std::min(0.20f, radius * 0.35f));
@@ -559,22 +597,24 @@ void Application::step() {
 		const btVector3& origin = trans.getOrigin();
 		if (body && body->getInvMass() > 0.0f &&
 		    !(body->getCollisionFlags() & btCollisionObject::CF_STATIC_OBJECT) &&
-		    (origin.y() < -20.0f || std::abs(origin.x()) > 42.0f || std::abs(origin.z()) > 42.0f)) {
-			static bool respawn_left = false;
-			float rx = respawn_left ? (-8.0f + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / 0.4f)) - 0.2f)
-			                        : ( 8.0f + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / 0.4f)) - 0.2f);
-			respawn_left = !respawn_left;
-			float ry = 14.8f + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / 1.0f));
-			float rz = -10.0f + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / 1.0f));
+		    (origin.y() < -15.0f || std::abs(origin.x()) > 42.0f ||
+		     origin.z() > 38.0f || origin.z() < -43.0f)) {
+			float rradius = 1.0f;
+			if (body->getCollisionShape()) {
+				btVector3 bs_center;
+				btScalar bs_radius = 1.0f;
+				body->getCollisionShape()->getBoundingSphere(bs_center, bs_radius);
+				rradius = std::clamp(static_cast<float>(bs_radius), 0.5f, 2.0f);
+			}
+			float rx = 0.0f, ry = 0.0f, rz = 0.0f, vx_small = 0.0f;
+			sampleHillsideSummitSpawn(simulation, rradius, rx, ry, rz, vx_small);
 			trans.setOrigin(btVector3(rx, ry, rz));
 			trans.setRotation(btQuaternion(0, 0, 0, 1));
 			body->setWorldTransform(trans);
 			if (body->getMotionState()) {
 				body->getMotionState()->setWorldTransform(trans);
 			}
-			body->setLinearVelocity(btVector3(0.0f, -0.8f, 2.5f));
-			body->setAngularVelocity(btVector3(2.5f, 0.0f, 0.0f));
-			body->activate(true);
+			applyDownhillVelocity(body, vx_small);
 		}
 
 		auto itr = simulation->collision_node_index.find(j);
@@ -623,7 +663,15 @@ bool Application::isPicking() const {
 
 btRigidBody* Application::shootProjectile(float speed) {
 	if (!spawner || !camera) return nullptr;
-	return spawner->spawnFromCamera(camera, speed);
+	const float forward_offset = 2.0f;
+	glm::vec3 spawn_pos = camera->position + camera->direction * forward_offset;
+	if (simulation && simulation->terrain) {
+		const float min_y = simulation->getTerrainHeightAt(spawn_pos.x, spawn_pos.z) + spawner->getRadius() + 0.25f;
+		if (spawn_pos.y < min_y) {
+			spawn_pos.y = min_y;
+		}
+	}
+	return spawner->spawn(spawn_pos, camera->direction, speed);
 }
 
 void Application::toggleDebugDrawer() {
@@ -695,7 +743,7 @@ int Application::getFloorTunnelingCount() const {
 	if (!simulation || !simulation->dynamics_world)
 		return 0;
 	int count = 0;
-	const float bound = simulation->terrain ? 38.0f : 28.0f;
+	const float bound = simulation->terrain ? 43.0f : 28.0f;
 	btCollisionObjectArray& objects = simulation->dynamics_world->getCollisionObjectArray();
 	for (int i = 0; i < objects.size(); ++i) {
 		btCollisionObject* obj = objects[i];

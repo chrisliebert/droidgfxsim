@@ -83,12 +83,12 @@ void Simulation::parseXMLNode(rapidxml::xml_node<>* my_xml_node, scenegraph::Nod
 		if (0 == std::string("Terrain").compare(name)) {
 			std::string terrain_name("Arena_Terrain");
 			std::string heightmap("terrain_heightmap.png");
-			int width = 81;
-			int length = 81;
-			float scale_x = 1.0f;
-			float scale_z = 1.0f;
-			float min_height = -1.6f;
-			float max_height = 6.9f;
+			int width = 121;
+			int length = 121;
+			float scale_x = 0.75f;
+			float scale_z = 0.75f;
+			float min_height = -1.5f;
+			float max_height = 24.0f;
 			for (rapidxml::xml_attribute<>* attr = node->first_attribute();
 					attr; attr = attr->next_attribute()) {
 				std::string aname(attr->name() ? attr->name() : "");

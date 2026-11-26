@@ -63,6 +63,11 @@
 | T59 | L3 | agent-L3-1 | native/include/physics/terrain.h, native/src/physics/terrain.cc, native/include/physics/simulation.h, native/src/physics/simulation.cc, native/include/application/application.h, native/src/application/application.cc, app/src/main/assets/models.obj, app/src/main/assets/data.xml, app/src/main/assets/terrain_heightmap.png | merged | `cmake --build build --config Debug && & .\build\bin\Debug\desktop_app.exe --headless` | Fixed debris visual/physics scale mismatch (< 1e-7m), integrated 81x81 `btHeightfieldTerrainShape` (`terrain_heightmap.png`, 4.3e-6m raycast parity), added 5 custom 3D model types (`Crystal`, `Boulder`, `Rook`, `Torus` compound, `Glider`), fixed terrain Welzl stack overflow & constraint teardown (exit code 0) |
 | T60 | L4 | agent-L4-1 | tests/test_physics.cc, .agents/skills/interactive-testing/scripts/interactive_visual_test.py, .agents/skills/interactive-testing/scripts/analyze_captures.py | merged | `ctest --test-dir build -C Debug --output-on-failure; python .agents/skills/interactive-testing/scripts/interactive_visual_test.py --no-build --duration 35.0 --interval 2.5` | Unit Tests 10–12 passing (11/11 suites CTest 100%); arrow KF_EXTENDED & ImGui focus fix; 35s interactive test PASS (`92.3% DYNAMIC_ACTION`, `73.56` kinetic score, `2.4256` entropy, `0` tunneling defects, `--vulkan --headless` exit 0) |
 | T61 | L5 | agent-L5-1 | BACKLOG.md, TECHNICAL_CRITICAL_REVIEW.md, README.md | merged | `git status` | PhD Review Board 19 / Polish 13 authored (Heightmap Terrain Isomorphism, Convex/Compound 3D Models & Visual-Physics Scale Parity), Health Scorecard updated to 19 boards, README updated, and task board synchronized across all 61 tasks (exit code 0) |
+| T62 | L2 | agent-L2-1 | app/src/main/assets/terrain_diffuse.png, native/src/graphics/gl2_renderer.cc, native/src/graphics/gl3_renderer.cc | merged | `cmake --build build --config Debug; cmake --build build --config Release; ctest --test-dir build -C Release --output-on-failure` | Regenerated 2048x2048 multi-biome slope/AO `terrain_diffuse.png` (no stripes/concrete cutout), upgraded GL2/GL3 shaders with hemisphere sky/ground ambient, sunlit slope lighting `(22,44,28)`, world-space micro-grain noise, and Rayleigh horizon fog; Debug/Release builds & CTest 100% pass (exit code 0) |
+| T63 | L3 | agent-L3-1 | native/include/physics/terrain.h, native/src/physics/terrain.cc, native/include/physics/simulation.h, native/src/physics/simulation.cc, native/include/application/application.h, native/src/application/application.cc, app/src/main/assets/terrain_heightmap.png, app/src/main/assets/models.obj, app/src/main/assets/data.xml | merged | `cmake --build build --config Debug && cmake --build build --config Release` | Sculpted 121x121 (`0.75m`) camera-facing mountain hillside with 16-bit packed RGB heightmap precision (`0.2mm` accuracy, `6.9e-6m` raycast parity), hid concrete dam/ramps in default scene via `hide_nodes`, repositioned props onto hillside & aligned downhill summit spawner (`avg +6.91m` +Z downhill roll in 180 frames, `0` tunneling) (exit code 0) |
+| T64 | L4 | agent-L4-1 | tests/test_physics.cc, .agents/skills/interactive-testing/scripts/interactive_visual_test.py | merged | `ctest --test-dir build -C Debug --output-on-failure; ctest --test-dir build -C Release --output-on-failure; python .agents/skills/interactive-testing/scripts/interactive_visual_test.py --no-build --binary build/bin/Release/desktop_app.exe --duration 35.0 --interval 2.5` | Updated Tests 10–11 & added Test 13 (`shootProjectile` clearance); Debug (`34.99s`) & Release (`4.80s`) CTest 100% pass; 35s interactive test PASS (`92.3% DYNAMIC_ACTION`, `1.5202` entropy, `0` tunneling defects across all 13 hillside frames) (exit code 0) |
+| T65 | L5 | agent-L5-1 | BACKLOG.md, TECHNICAL_CRITICAL_REVIEW.md, README.md | merged | `git status` | PhD Review Board 20 / Polish 14 authored (Camera-Facing Mountain Hillside, 16-Bit Heightmap Precision, Atmospheric Micro-Grain Shading & Interactive Bug Remediation), Health Scorecard updated to 20 boards, README updated, and task board synchronized across all 66 tasks (exit code 0) |
+| T66 | L3 | agent-L3-1 | native/src/application/application.cc | merged | `cmake --build build --config Debug ; if ($?) { cmake --build build --config Release }` | Fixed `Application::shootProjectile(float speed)` `forward_offset` parameter bug (`2.0f` offset + terrain clearance clamp), preventing Spacebar cannonballs from spawning underground (exit code 0) |
 
 ---
 
@@ -935,6 +940,75 @@ Demonstrating both **Android NDK** and **iOS native C++20** in a single engine p
 
 ---
 
+### T62: Multi-Biome Alpine Terrain Texture & Atmospheric Micro-Grain Slope Shading (Lane L2)
+- **Objective:** Replace periodic elevation contour stripes and flat concrete cutouts with a `2048x2048` multi-biome slope/crevice-AO alpine terrain texture and upgrade GL2/GL3 shaders for world-space micro-grain and hemisphere atmospheric lighting.
+- **Files Owned:**
+  - `app/src/main/assets/terrain_diffuse.png`
+  - `native/src/graphics/gl2_renderer.cc`
+  - `native/src/graphics/gl3_renderer.cc`
+- **Implementation Details:**
+  1. Regenerated `2048x2048` `app/src/main/assets/terrain_diffuse.png` multi-biome slope/crevice-AO alpine texture, eliminating periodic contour rings and flat concrete cutouts.
+  2. Upgraded GL2 (`#version 100`) and GL3 (`#version 300 es`) shaders in `native/src/graphics/gl2_renderer.cc` and `native/src/graphics/gl3_renderer.cc` with `worldPos`/`worldNormal`, hemisphere sky/earth ambient lighting, elevated sun light `(22.0, 44.0, 28.0)`, dual-scale `worldPos.xz` procedural micro-grain modulation, and Rayleigh horizon fog across `smoothstep(48.0, 120.0, dist)`.
+- **Verification Command:** `cmake --build build --config Debug; cmake --build build --config Release; ctest --test-dir build -C Release --output-on-failure`
+
+---
+
+### T63: Camera-Facing 121x121 Mountain Hillside, 16-Bit Packed RGB Heightmap & Legacy Node Detachment (Lane L3)
+- **Objective:** Upgrade `HeightmapTerrain` to a `121x121` camera-facing mountain hillside with 16-bit packed RGB heightmap precision, detach legacy concrete floor/ramps in the default scene via `hide_nodes`, and align summit ridge downhill cascading.
+- **Files Owned:**
+  - `native/include/physics/terrain.h`
+  - `native/src/physics/terrain.cc`
+  - `native/include/physics/simulation.h`
+  - `native/src/physics/simulation.cc`
+  - `native/include/application/application.h`
+  - `native/src/application/application.cc`
+  - `app/src/main/assets/terrain_heightmap.png`
+  - `app/src/main/assets/models.obj`
+  - `app/src/main/assets/data.xml`
+- **Implementation Details:**
+  1. **16-Bit Facing Hillside Terrain:** Upgraded `HeightmapTerrain` (`native/include/physics/terrain.h/.cc`) to `121x121` grid with `0.75m` spacing ($X, Z \in [-45.0, +45.0]$) and $[-1.5\text{f}, 24.0\text{f}]$ vertical range (`origin_y = 11.25f`) using 16-bit packed RGB heightmap decoding in `app/src/main/assets/terrain_heightmap.png`, achieving `0.000196m` PNG accuracy and `6.91e-6 m` Bullet raycast parity across 578 sample points.
+  2. **Scene Layout, `hide_nodes` & Summit Ridge Cascade:** Implemented `hide_nodes` detachment in `Application::parseXMLNode` & `data.xml` (`hide_nodes="Arena_Floor,Upper_Platform,Ramp_Left,Ramp_Right"`), positioned camera at `(0.0f, 6.8f, 32.0f)` (`aim(0.0, 0.04)`) facing directly up the hillside, moved props/balls/crates onto the slope/clearing (`avg +6.91m` downhill `+Z` roll in 180 frames), aligned summit ridge continuous downhill spawning (`rz` $\in [-31, -21]$), and preserved presets `0–3` cleanly.
+- **Verification Command:** `cmake --build build --config Debug && cmake --build build --config Release`
+
+---
+
+### T64: Facing Hillside Physics Regression (Tests 10–11, 13) & Release 35s Interactive Visual QA (Lane L4)
+- **Objective:** Update `tests/test_physics.cc` for the `121x121` facing hillside and `shootProjectile` terrain clearance test, and verify Debug/Release CTest and Release 35s `/interactive-testing`.
+- **Files Owned:**
+  - `tests/test_physics.cc`
+  - `.agents/skills/interactive-testing/scripts/interactive_visual_test.py`
+- **Implementation Details:**
+  1. Updated `tests/test_physics.cc` Tests 10–11 for `121x121` facing hillside and downhill rolling verification, and added Test 13 verifying `shootProjectile(35.0f)` terrain clearance invariance.
+  2. Updated `.agents/skills/interactive-testing/scripts/interactive_visual_test.py` and executed Debug CTest (`34.99s`) & Release CTest (`4.80s`), both passing `100%` (`11/11` suites), plus 35s Release `/interactive-testing` (`PASS`, `12/13 = 92.3% DYNAMIC_ACTION`, Mean Kinetic Excitement `37.70 / 100.0`, Mean Entropy `1.5202 bits`, `0` tunneling defects across all 13 frames).
+- **Verification Command:** `ctest --test-dir build -C Debug --output-on-failure; ctest --test-dir build -C Release --output-on-failure; python .agents/skills/interactive-testing/scripts/interactive_visual_test.py --no-build --binary build/bin/Release/desktop_app.exe --duration 35.0 --interval 2.5`
+
+---
+
+### T65: PhD Review Board 20 / Polish 14, Hillside Heightfield Synthesis & Documentation Synchronization (Lane L5)
+- **Objective:** Author Polish 14 / Verification Board 20 in `TECHNICAL_CRITICAL_REVIEW.md`, update the Health Scorecard to 20 verification boards, update `README.md`, and synchronize `BACKLOG.md` across all 66 tasks.
+- **Files Owned:**
+  - `BACKLOG.md`
+  - `TECHNICAL_CRITICAL_REVIEW.md`
+  - `README.md`
+- **Implementation Details:**
+  1. Authored Section 12 in `BACKLOG.md` and Polish 14 / Verification Board 20 in `TECHNICAL_CRITICAL_REVIEW.md` covering the `121x121` 16-bit packed RGB hillside, `2048x2048` multi-biome alpine shading, world-space micro-grain & hemisphere lighting, and `shootProjectile` clearance remediation.
+  2. Updated Final Project Health Scorecard to 20 Verification Boards with `T62–T66` evidence.
+  3. Updated `README.md` highlights and validation sections with the `121×121` facing hillside, alpine multi-biome shading, `13`-test Physics / Release CTest, and Release `/interactive-testing` results.
+- **Verification Command:** `git status`
+
+---
+
+### T66: Projectile Spawn Terrain Clearance Remediation (`shootProjectile`) (Lane L3)
+- **Objective:** Fix the `/interactive-testing`-discovered bug in `Application::shootProjectile(float speed)` where cannonballs spawned beneath the facing mountain hillside.
+- **Files Owned:**
+  - `native/src/application/application.cc`
+- **Implementation Details:**
+  1. Diagnosed root cause: passing `speed` (`35.0f`) into `spawnFromCamera(camera, speed)` set `forward_offset = 35.0f`, spawning Spacebar cannonballs beneath the sloping terrain surface.
+  2. Refactored `Application::shootProjectile(float speed)` to compute `spawn_pos` at `forward_offset = 2.0f`, clamp elevation strictly above `getTerrainHeightAt + radius + 0.25f`, and invoke `spawner->spawn(spawn_pos, camera->direction, speed)`.
+- **Verification Command:** `cmake --build build --config Debug ; if ($?) { cmake --build build --config Release }`
+
+---
+
 ## PhD Review Board Defense & Academic Remediation Synthesis
 
 ### 1. Differential Geometry & Topological Invariance
@@ -1034,3 +1108,12 @@ Replacing a flat planar arena floor with a continuous heightmap requires strict 
 Simultaneously, visual-to-physics scale mismatches cause edge clipping on curved and sloped terrain. Previously, `spawnDynamicDebris()` instantiated `btSphereShape(radius)` ($r \in [0.55\text{f}, 0.85\text{f}]$) and `btBoxShape(radius * 0.8f)` while cloning unscaled `Ball_00` ($r = 1.0\,\text{f}$) and `Crate_00` ($\text{half} = 0.8\,\text{f}$) visual vertices, allowing visual edges to protrude outside collision bounds. Scaling cloned vertices via:
 $$s = \frac{\text{target}}{\text{src\_extent}}, \quad \mathbf{v}_{\text{scaled}} = s \cdot \mathbf{v}_{\text{src}}$$
 and recomputing `computeWelzlBoundingSphere()` locks visual and physics bounds within `5.96e-8 m` (`< 1e-7 m`), while `stepSimulation(1.f/60.f, 10, 1.f/120.f)` substeps and tight `0.01f` margins on dynamic `btConvexHullShape`s eliminate slope sinking across all tested radii. Coupled with 5 strict-CCW custom 3D model types (`Prop_Crystal_00/01`, `Prop_Boulder_00/01`, `Prop_Rook_00/01`, `Prop_Torus_00/01` with 8-sphere `btCompoundShape` ring, `Prop_Glider_00/01`; `max_debris = 36`), contour-matched `1024x1024` PBR textures (`terrain_diffuse.png`, `texture_rock.png`, `texture_gold.png`, `texture_ruby.png`), Rayleigh horizon fog (`[42, 97]\,\text{m} \to \text{vec3}(0.55, 0.68, 0.82)`), extremal support Welzl expansion over 6,561 terrain vertices (eliminating recursive `b_minidisk` 1 MB stack overflow), and `Simulation::~Simulation()` constraint teardown prior to rigid body deletion, the engine passes `11/11` CTest suites (`100%`), `--gl2/--gl3/--vulkan --headless` (exit 0), and 35s interactive QA (`92.3% DYNAMIC_ACTION`, `73.56` kinetic score, `2.4256` bits entropy, `0` tunneling defects) across all 19 verification boards.
+
+### 12. Camera-Facing Hillside Heightfield, 16-Bit Packed Precision, Photorealistic Slope Lighting & Projectile Clearance Invariants
+Upgrading the arena terrain to a steep, camera-facing mountain hillside requires sub-millimeter elevation quantization so rolling rigid bodies experience continuous slopes rather than 8-bit quantization steps. In `droidgfxsim::HeightmapTerrain` (`native/include/physics/terrain.h/.cc`), expanding the grid to `121x121` at `0.75m` spacing ($X, Z \in [-45.0, +45.0]\,\text{m}$, height range $[-1.5\text{f}, 24.0\text{f}]\,\text{m}$, `origin_y = 11.25f`) with 16-bit packed RGB decoding in `app/src/main/assets/terrain_heightmap.png` achieves `0.000196m` PNG height resolution and `6.91e-6 m` parity against Bullet `ClosestRayResultCallback` across 578 sample points. Detaching legacy flat geometry (`hide_nodes="Arena_Floor,Upper_Platform,Ramp_Left,Ramp_Right"`) in `Application::parseXMLNode` and `data.xml` while preserving presets `0–3`, framing the camera at `(0.0f, 6.8f, 32.0f)` (`aim(0.0, 0.04)`) facing upslope, and positioning props and summit ridge spawners (`rz` $\in [-31, -21]$) yields smooth downhill transport (`avg +6.91m` `+Z` roll in 180 frames) with `0` tunneling defects.
+
+On the rendering side, regenerating `2048x2048` `app/src/main/assets/terrain_diffuse.png` as a multi-biome slope and crevice-AO alpine texture eliminates periodic contour rings and flat concrete cutouts. Upgrading both GL2 (`#version 100`) and GL3 (`#version 300 es`) shaders in `native/src/graphics/gl2_renderer.cc` and `native/src/graphics/gl3_renderer.cc` with `worldPos`/`worldNormal` outputs, sky/ground hemisphere ambient lighting, elevated sun light `(22.0, 44.0, 28.0)`, dual-scale `worldPos.xz` procedural micro-grain modulation, and Rayleigh horizon fog across `smoothstep(48.0, 120.0, dist)` provides continuous surface micro-detail and aerial perspective across the hillside.
+
+Finally, automated `/interactive-testing` caught a parameter aliasing bug in `Application::shootProjectile(float speed)` where passing `speed` (`35.0f`) into `spawnFromCamera(camera, speed)` assigned `forward_offset = 35.0f` and spawned Spacebar cannonballs beneath the sloping mountain surface. Computing `spawn_pos` at `forward_offset = 2.0f`, enforcing the clearance invariant:
+$$y_{\text{spawn}} \ge h_{\text{terrain}}(x, z) + r + 0.25\,\text{m}$$
+via `getTerrainHeightAt`, and calling `spawner->spawn(spawn_pos, camera->direction, speed)` guarantees above-terrain projectile spawning—verified by Test 13 in `tests/test_physics.cc`, Debug (`34.99s`) and Release (`4.80s`) `11/11` CTest runs (`100%`), and 35s Release `/interactive-testing` (`PASS`, `12/13 = 92.3% DYNAMIC_ACTION`, Mean Kinetic Excitement `37.70 / 100.0`, Mean Entropy `1.5202 bits`, `0` tunneling defects across all 13 frames).

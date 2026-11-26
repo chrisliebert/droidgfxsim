@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <glm/glm.hpp>
 
 #include "common/MathUtil.h"
@@ -19,42 +20,40 @@ inline float smoothstep(float edge0, float edge1, float x) {
     return t * t * (3.0f - 2.0f * t);
 }
 
-inline float boxDistance2D(float x, float z, float x0, float x1, float z0, float z1) {
-    float dx = std::max({x0 - x, 0.0f, x - x1});
-    float dz = std::max({z0 - z, 0.0f, z - z1});
-    return std::sqrt(dx * dx + dz * dz);
-}
-
 } // namespace
 
 HeightmapTerrain::HeightmapTerrain()
-    : width_(81),
-      length_(81),
-      scale_x_(1.0f),
-      scale_z_(1.0f),
-      min_height_(-1.6f),
-      max_height_(6.9f) {}
+    : width_(121),
+      length_(121),
+      scale_x_(0.75f),
+      scale_z_(0.75f),
+      min_height_(-1.5f),
+      max_height_(24.0f) {}
 
 float HeightmapTerrain::evalAnalyticalHeight(float world_x, float world_z) {
-    float d1 = boxDistance2D(world_x, world_z, -12.5f, 12.5f, -16.5f, -7.5f);
-    float d2 = boxDistance2D(world_x, world_z, -10.5f, -5.5f, -8.0f, 17.0f);
-    float d3 = boxDistance2D(world_x, world_z, 5.5f, 10.5f, -8.0f, 17.0f);
-    float d4 = boxDistance2D(world_x, world_z, -3.2f, 3.2f, 11.8f, 17.6f);
-
-    float min_pad = std::min({d1, d2, d3, d4});
-    float pad_weight = smoothstep(0.0f, 3.0f, min_pad);
-
-    float h_hills = 0.85f * std::sin(0.16f * world_x) * std::cos(0.14f * world_z)
-                  + 0.55f * std::cos(0.27f * world_x + 0.21f * world_z)
-                  + 0.35f * std::sin(0.42f * world_x - 0.33f * world_z + 0.7f);
-
-    float h_wings = 2.6f * smoothstep(11.0f, 26.0f, std::abs(world_x))
-                  * (0.7f + 0.3f * std::sin(0.18f * world_z));
-
-    float r_rim = std::max({std::abs(world_x) - 25.0f, std::abs(world_z) - 25.0f, 0.0f});
-    float h_rim = 4.2f * smoothstep(0.0f, 14.0f, r_rim);
-
-    return pad_weight * (h_hills + h_wings + h_rim);
+    const float x = world_x;
+    const float z = world_z;
+    const float tz = std::clamp((18.0f - z) / 54.0f, 0.0f, 1.0f);
+    const float sz = tz * tz * (3.0f - 2.0f * tz);
+    const float h_slope = 15.5f * (0.35f * tz + 0.65f * sz);
+    const float g1 = std::exp(-std::pow((x - (-7.5f + 1.8f * std::sin(0.11f * z))) / 4.2f, 2.0f));
+    const float g2 = std::exp(-std::pow((x - ( 7.5f - 1.8f * std::sin(0.11f * z))) / 4.2f, 2.0f));
+    const float ravine = -1.6f * std::sin(3.14159265f * tz) * (g1 + g2);
+    const float edge_x = smoothstep(14.0f, 40.0f, std::abs(x));
+    const float front_lip = smoothstep(24.0f, 42.0f, z);
+    const float h_walls = 6.2f * edge_x + 2.8f * front_lip;
+    const float f1 = 1.15f * std::sin(0.13f * x + 0.4f) * std::cos(0.12f * z - 0.3f);
+    const float f2 = 0.65f * std::cos(0.24f * x - 0.19f * z + 0.8f);
+    const float f3 = 0.32f * std::sin(0.41f * x + 0.37f * z - 0.5f);
+    const float ridge = 0.85f * (1.0f - std::abs(std::sin(0.11f * x + 0.08f * z)))
+                      * smoothstep(4.0f, 14.0f, h_slope + 6.2f * edge_x);
+    const float detail_mask = smoothstep(0.0f, 4.0f, 1.0f + tz * 2.0f + std::abs(x) * 0.15f);
+    const float h_total = h_slope + ravine + h_walls + (f1 + f2 + f3 + ridge) * detail_mask;
+    const float dx_c = std::max({0.0f, -3.0f - x, x - 3.0f});
+    const float dz_c = std::max({0.0f, 15.0f - z, z - 20.5f});
+    const float d_crate = std::sqrt(dx_c * dx_c + dz_c * dz_c);
+    const float crate_blend = smoothstep(0.0f, 4.5f, d_crate);
+    return std::clamp(0.25f + crate_blend * (h_total - 0.25f), -1.5f, 24.0f);
 }
 
 void HeightmapTerrain::generateProcedural(int width, int length,
@@ -109,13 +108,23 @@ bool HeightmapTerrain::loadFromPNG(const std::string& filename,
     height_data_.resize(static_cast<size_t>(width_) * static_cast<size_t>(length_));
 
     const float height_span = max_height_ - min_height_;
+    auto sampleNorm = [&](int sx, int sy) -> float {
+        const size_t idx = (static_cast<size_t>(sy) * static_cast<size_t>(img.w) + static_cast<size_t>(sx))
+                         * static_cast<size_t>(img.comp);
+        if (img.comp >= 3) {
+            const uint16_t r = static_cast<uint16_t>(img.data[idx]);
+            const uint16_t g = static_cast<uint16_t>(img.data[idx + 1]);
+            const uint16_t raw16 = static_cast<uint16_t>((r << 8) | g);
+            return static_cast<float>(raw16) / 65535.0f;
+        }
+        return static_cast<float>(img.data[idx]) / 255.0f;
+    };
+
     if (img.w == width_ && img.h == length_) {
         for (int j = 0; j < length_; ++j) {
             for (int x = 0; x < width_; ++x) {
-                size_t pixel_idx = (static_cast<size_t>(j) * static_cast<size_t>(img.w) + static_cast<size_t>(x))
-                                 * static_cast<size_t>(img.comp);
-                unsigned char val = img.data[pixel_idx];
-                float h = min_height_ + (static_cast<float>(val) / 255.0f) * height_span;
+                const float norm = sampleNorm(x, j);
+                const float h = min_height_ + norm * height_span;
                 height_data_[static_cast<size_t>(j) * static_cast<size_t>(width_) + static_cast<size_t>(x)] =
                     std::clamp(h, min_height_, max_height_);
             }
@@ -134,19 +143,13 @@ bool HeightmapTerrain::loadFromPNG(const std::string& filename,
                 int x1 = std::min(x0 + 1, img.w - 1);
                 float tx = fx - static_cast<float>(x0);
 
-                auto sample = [&](int sx, int sy) -> float {
-                    size_t idx = (static_cast<size_t>(sy) * static_cast<size_t>(img.w) + static_cast<size_t>(sx))
-                               * static_cast<size_t>(img.comp);
-                    return static_cast<float>(img.data[idx]);
-                };
-
-                float c00 = sample(x0, y0);
-                float c10 = sample(x1, y0);
-                float c01 = sample(x0, y1);
-                float c11 = sample(x1, y1);
-                float val = (1.0f - ty) * ((1.0f - tx) * c00 + tx * c10)
-                          + ty * ((1.0f - tx) * c01 + tx * c11);
-                float h = min_height_ + (val / 255.0f) * height_span;
+                float c00 = sampleNorm(x0, y0);
+                float c10 = sampleNorm(x1, y0);
+                float c01 = sampleNorm(x0, y1);
+                float c11 = sampleNorm(x1, y1);
+                float norm = (1.0f - ty) * ((1.0f - tx) * c00 + tx * c10)
+                           + ty * ((1.0f - tx) * c01 + tx * c11);
+                float h = min_height_ + norm * height_span;
                 height_data_[static_cast<size_t>(j) * static_cast<size_t>(width_) + static_cast<size_t>(x)] =
                     std::clamp(h, min_height_, max_height_);
             }

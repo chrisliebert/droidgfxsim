@@ -20,19 +20,19 @@ public:
 
     bool loadFromPNG(const std::string& filename,
                      AssetManager* asset_manager,
-                     int width = 81,
-                     int length = 81,
-                     float scale_x = 1.0f,
-                     float scale_z = 1.0f,
-                     float min_height = -1.6f,
-                     float max_height = 6.9f);
+                     int width = 121,
+                     int length = 121,
+                     float scale_x = 0.75f,
+                     float scale_z = 0.75f,
+                     float min_height = -1.5f,
+                     float max_height = 24.0f);
 
-    void generateProcedural(int width = 81,
-                            int length = 81,
-                            float scale_x = 1.0f,
-                            float scale_z = 1.0f,
-                            float min_height = -1.6f,
-                            float max_height = 6.9f);
+    void generateProcedural(int width = 121,
+                            int length = 121,
+                            float scale_x = 0.75f,
+                            float scale_z = 0.75f,
+                            float min_height = -1.5f,
+                            float max_height = 24.0f);
 
     static float evalAnalyticalHeight(float world_x, float world_z);
 

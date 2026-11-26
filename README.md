@@ -19,13 +19,13 @@
 
 ## ⚡ 10-Second Recruiter Hook
 
-`droidgfxsim` is a modular, high-performance cross-platform 3D graphics and physics simulation engine authored in modern **C++20**. Designed as a production-grade portfolio centerpiece, it showcases an `81×81` `btHeightfieldTerrainShape` heightmap terrain, custom convex/compound 3D prop archetypes with exact visual-to-physics scale parity, real-time directional soft shadows ($3\times3$ PCF), tactile rigid-body spring dragging, continuous collision detection (CCD), atomic runtime shader hot-reloading, exact $O(N)$ Welzl bounding spheres, and in-engine Dear ImGui telemetry.
+`droidgfxsim` is a modular, high-performance cross-platform 3D graphics and physics simulation engine authored in modern **C++20**. Designed as a production-grade portfolio centerpiece, it showcases a `121×121` 16-bit precision `btHeightfieldTerrainShape` camera-facing mountain hillside, `2048×2048` alpine multi-biome shading with world-space micro-grain and hemisphere sky lighting, custom convex/compound 3D prop archetypes with exact visual-to-physics scale parity, real-time directional soft shadows ($3\times3$ PCF), tactile rigid-body spring dragging, continuous collision detection (CCD), atomic runtime shader hot-reloading, exact $O(N)$ Welzl bounding spheres, and in-engine Dear ImGui telemetry.
 
 ![Simulation Screenshot](screenshot.png)
 
 ### Key Engineering Highlights
 - 🌋 **Next-Gen Vulkan 1.3 Architecture (`--vulkan`):** Modern low-overhead explicit rendering backend alongside OpenGL 3.3 and GLES 2.0. Explicit physical device selection, dedicated graphics/compute queues, two-tier memory model (Host-visible staging buffer mapped to Device-local VRAM), pipeline barriers, and pre-compiled SPIR-V shaders.
-- 🏔️ **Heightmap Terrain Isomorphism & Atmospheric Perspective:** `81×81` Bullet `btHeightfieldTerrainShape` arena terrain (`terrain_heightmap.png`, $X, Z \in [-40, +40]\,\text{m}$, $1.0\,\text{m}$ cell spacing, $Y \in [-1.6, +6.9]\,\text{m}$) paired with a contour-mapped `1024×1024` PBR texture (`terrain_diffuse.png`), exact diagonal triangle matching (`4.29e-6 m` raycast parity), terrain-aware tunneling detection, and Rayleigh horizon atmospheric fog (`42`–`97 m`).
+- 🏔️ **16-Bit Facing Hillside Heightmap & Multi-Biome Alpine Shading:** `121×121` (`0.75 m` grid spacing, $X, Z \in [-45.0, +45.0]\,\text{m}$, $Y \in [-1.5, +24.0]\,\text{m}$) Bullet `btHeightfieldTerrainShape` mountain hillside (`terrain_heightmap.png`, 16-bit packed RGB decoding with `0.000196 m` PNG precision and `6.91e-6 m` Bullet raycast parity across 578 sample points), paired with a regenerated `2048×2048` multi-biome slope/crevice-AO alpine texture (`terrain_diffuse.png`), GL2/GL3 `worldPos`/`worldNormal` shaders with hemisphere sky/earth ambient, sun light `(22.0, 44.0, 28.0)`, dual-scale `worldPos.xz` procedural micro-grain modulation, Rayleigh horizon fog (`smoothstep(48.0, 120.0, dist)`), and terrain-cleared downhill spawning (`avg +6.91 m` `+Z` roll in 180 frames).
 - 💎 **Custom 3D Model Archetypes & Visual-Physics Scale Parity (`< 1e-7 m`):** 5 strict-CCW custom 3D prop types (`Crystal`, `Boulder`, `Rook`, 8-sphere `btCompoundShape` `Torus` ring, and `Glider`) textured with `1024×1024` PBR maps (`texture_rock.png`, `texture_gold.png`, `texture_ruby.png`), plus exact cloned-mesh vertex scaling (`scale = target / src_extent`) and Welzl bounding sphere recomputation guaranteeing visual-to-physics scale parity (`5.96e-8 m` max delta).
 - 🌊 **Continuous Aerial Cascade & Multi-Tier Restitution Scattering:** 16-sphere multi-tier dynamic cascade staggered vertically up to $60\,\text{m}$ with boosted coefficient of restitution ($\epsilon = 0.82$, conserving $67.2\%$ kinetic energy per bounce). Interactive Continuous Aerial Cascade Mode (`C` key toggle and ImGui telemetry controls) injecting perpetual kinetic energy, multi-frequency physical dispersion, and high-velocity ricochets.
 - 💥 **Physics Destruction & Dynamic Constraints:** 4 distinct physical presets including a 34-block Jenga demolition tower, a suspended wrecking ball pendulum, rolling compound shapes, and a 500-rigid-body stress test.
@@ -179,37 +179,19 @@ cmake --build build-ios --config Release -- -sdk iphonesimulator
 
 ## 🧪 Automated Testing & Validation
 
-### CTest Automated Regression Suite (10/10 Passing)
-Run all 10 unit test suites covering math, camera, frustum, scene graph, asset manager, Wavefront OBJ parsing, Bullet simulation, raycast picking, shadow mapping, and shader hot-reloading:
+### CTest Automated Regression Suite (11/11 Suites Passing — Debug & Release)
+Run all `11` unit test suites (including the `13`-test Bullet Physics suite in `tests/test_physics.cc` covering `121×121` facing hillside rolling, `578`-sample raycast parity, visual-physics scale parity, 5 custom prop + compound torus archetypes, and `shootProjectile` terrain clearance):
 
 ```powershell
+# Debug (34.99s) & Release (4.80s) CTest runs — 11/11 suites (100% PASS)
 ctest --test-dir build -C Debug --output-on-failure
+ctest --test-dir build -C Release --output-on-failure
 ```
 
 Direct executable run from assets directory:
 ```powershell
 cd app/src/main/assets
-../../../build/tests/Debug/unit_tests.exe
-```
-
-Expected output:
-```text
-========================================
-  droidgfxsim Modernized Unit Test Suite
-========================================
---- Running: Math & Welzl Bounding Sphere ---     [PASS]
---- Running: Camera Orientation & Clamping ---    [PASS]
---- Running: Frustum Culling & Planes ---         [PASS]
---- Running: Scene Graph Hierarchy & Lifecycle -- [PASS]
---- Running: Asset Manager & Path Resolution ---  [PASS]
---- Running: Wavefront Parser & Material ---      [PASS]
---- Running: Bullet Physics Simulation ---        [PASS]
---- Running: Raycast Picker & Constraints ---     [PASS]
---- Running: Shadow Map Matrices & PCF ---        [PASS]
---- Running: Shader Manager & Hot-Reload ---      [PASS]
-========================================
-  Summary: 10 passed, 0 failed (100%)
-========================================
+../../../build/tests/Release/unit_tests.exe
 ```
 
 ### 🤖 Agentic Interactive Visual Testing Framework (`/interactive-testing`)
@@ -218,8 +200,8 @@ The engine integrates a dedicated autonomous interactive visual testing framewor
 
 #### Dynamic Action Trajectory
 The automated test runner (`interactive_visual_test.py`) navigates through a structured kinetic stress routine:
-1. **Multi-Tier Cascade & Kinetic Scattering:** Evaluates the 16-sphere dynamic cascade staggered up to $60\,\text{m}$ with boosted restitution ($\epsilon = 0.82$, $67.2\%$ kinetic conservation), verifying sustained non-equilibrium scattering across ramps and domino pillars.
-2. **Continuous Aerial Cascade Streaming:** Automated toggling of Continuous Aerial Cascade Mode (`VK_C`) and rapid Spacebar projectile bombardment (`VK_SPACE`) at $35\,\text{m/s}$ with Continuous Collision Detection (CCD), verifying zero-tunneling impacts and high-impulse spark bursts.
+1. **Multi-Tier Cascade & Kinetic Scattering:** Evaluates the 16-sphere dynamic cascade staggered up to $60\,\text{m}$ with boosted restitution ($\epsilon = 0.82$, conserving $67.2\%$ kinetic energy per bounce) and summit ridge downhill rolling across the facing mountain hillside.
+2. **Continuous Aerial Cascade Streaming:** Automated toggling of Continuous Aerial Cascade Mode (`VK_C`) and rapid Spacebar projectile bombardment (`VK_SPACE`) at $35\,\text{m/s}$ with Continuous Collision Detection (CCD) and terrain-clearance clamping, verifying zero-tunneling impacts and high-impulse spark bursts.
 3. **Orbital Camera Navigation:** Metered forward thrust (`VK_UP`), vertical ascents (`VK_W`), and yaw sweeps (`VK_RIGHT`, `VK_LEFT`) navigating through the 3D scene arena.
 4. **Preset Swapping:** Autonomous switching across Scene Presets (`VK_1` through `VK_4`) validating hot scene reconstruction and zero-leak memory stability.
 5. **Wireframe Telemetry Inspection:** Toggling Bullet Physics debug visualization (`VK_F1`) to inspect contact manifolds, collision hulls, and bounding boxes.
@@ -227,13 +209,13 @@ The automated test runner (`interactive_visual_test.py`) navigates through a str
 #### Automated Computer Vision Defect Analysis
 Captured frames are evaluated by `analyze_captures.py` across mathematical and visual criteria:
 - **Blank / Black / White Screen Detection:** Flags black screen lockups ($\max(I) < 0.05$) or blown-out white screens ($\min(I) > 0.95$).
-- **Sustained Dynamic Motion Entropy ($H \ge 0.9\,\text{bits}$):** Evaluates Shannon spatial luminance entropy $H(t) = -\sum p_i \log_2(p_i + \epsilon_0) \ge 0.9\,\text{bits}$ (nominal range $4.5$–$7.2\,\text{bits}$) and temporal differential motion energy $E_m(t) \ge 0.02$, proving active macroscopic kinetic non-equilibrium across all 35 seconds without simulation stagnation ($E_{\text{freeze}} < 0.001$).
+- **Sustained Dynamic Motion Entropy ($H \ge 0.9\,\text{bits}$):** Evaluates Shannon spatial luminance entropy $H(t) = -\sum p_i \log_2(p_i + \epsilon_0) \ge 0.9\,\text{bits}$ and temporal differential motion energy $E_m(t) \ge 0.02$, proving active macroscopic kinetic non-equilibrium across all 35 seconds without simulation stagnation ($E_{\text{freeze}} < 0.001$). Latest 35s Release run: `PASS` (`12/13 = 92.3% DYNAMIC_ACTION`, Mean Kinetic Excitement `37.70 / 100.0`, Mean Entropy `1.5202 bits`, `0` tunneling defects across all 13 frames).
 - **Moiré & Banding Dispersion:** Dispersive row gradient analysis $\sigma(\Delta_{\text{row}}) \le 0.12$ verifying texture filtering and depth buffer precision without z-fighting artifacts.
 - **Automated Artifacts:** Generates comprehensive `visual_test_report.json`, `defect_analysis.json`, and formatted Markdown report `test_report.md`.
 
 ```powershell
-# Run 35s automated interactive visual testing session
-python .agents/skills/interactive-testing/scripts/interactive_visual_test.py --duration 35.0
+# Run 35s automated interactive visual testing session (Release build)
+python .agents/skills/interactive-testing/scripts/interactive_visual_test.py --no-build --binary build/bin/Release/desktop_app.exe --duration 35.0 --interval 2.5
 
 # Analyze frame captures for defects
 python .agents/skills/interactive-testing/scripts/analyze_captures.py --dir test_captures/

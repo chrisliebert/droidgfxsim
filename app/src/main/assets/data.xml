@@ -1,17 +1,9 @@
 <?xml version="1.0" ?>
 <WavefrontFile filename="models.obj">
-	<!-- Heightmap Terrain & Static Platforms -->
+	<!-- Heightmap Terrain -->
 	<Terrain name="Arena_Terrain" heightmap="terrain_heightmap.png" texture="terrain_diffuse.png"
-		width="81" length="81" scale_x="1.0" scale_z="1.0" min_height="-1.6" max_height="6.9" />
-	<PhysicsNode name="Upper_Platform" mass="0.0">
-		<CollisionShape>ConvexHull</CollisionShape>
-	</PhysicsNode>
-	<PhysicsNode name="Ramp_Left" mass="0.0">
-		<CollisionShape>ConvexHull</CollisionShape>
-	</PhysicsNode>
-	<PhysicsNode name="Ramp_Right" mass="0.0">
-		<CollisionShape>ConvexHull</CollisionShape>
-	</PhysicsNode>
+		width="121" length="121" scale_x="0.75" scale_z="0.75" min_height="-1.5" max_height="24.0"
+		hide_nodes="Arena_Floor,Upper_Platform,Ramp_Left,Ramp_Right" />
 
 	<!-- Dynamic Domino Pillars -->
 	<PhysicsNode name="Pillar_00" mass="3.0">

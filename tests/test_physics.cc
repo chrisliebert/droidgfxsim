@@ -647,7 +647,7 @@ int runPhysicsTests() {
             } else {
                 terrain_trans = terrain_it->second->getWorldTransform();
             }
-            const float expected_origin_y = 0.5f * (-1.6f + 6.9f);
+            const float expected_origin_y = 11.25f;
             ASSERT_NEAR(terrain_trans.getOrigin().y(), expected_origin_y, 1e-3f);
             ASSERT_NEAR(0.5f * (app.simulation->terrain->getMinHeight() +
                                 app.simulation->terrain->getMaxHeight()),
@@ -666,7 +666,7 @@ int runPhysicsTests() {
         }
         ASSERT_TRUE(base_tunnel_events == 0);
 
-        // Verify Arena_Terrain remained perfectly immovable at (0, 2.65, 0)
+        // Verify Arena_Terrain remained perfectly immovable at (0, 11.25, 0)
         if (terrain_it != app.simulation->rigid_bodies.end() && terrain_it->second != nullptr) {
             btTransform terrain_trans;
             if (terrain_it->second->getMotionState()) {
@@ -674,7 +674,7 @@ int runPhysicsTests() {
             } else {
                 terrain_trans = terrain_it->second->getWorldTransform();
             }
-            ASSERT_NEAR(terrain_trans.getOrigin().y(), 2.65f, 1e-3f);
+            ASSERT_NEAR(terrain_trans.getOrigin().y(), 11.25f, 1e-3f);
         }
 
         // Step 2: Dynamic cascade shower containment across 300 simulation steps
@@ -688,6 +688,17 @@ int runPhysicsTests() {
             }
         }
         ASSERT_TRUE(cascade_tunnel_events == 0);
+
+        // Verify Arena_Terrain remained perfectly immovable at (0, 11.25, 0) after 300+300 steps
+        if (terrain_it != app.simulation->rigid_bodies.end() && terrain_it->second != nullptr) {
+            btTransform terrain_trans;
+            if (terrain_it->second->getMotionState()) {
+                terrain_it->second->getMotionState()->getWorldTransform(terrain_trans);
+            } else {
+                terrain_trans = terrain_it->second->getWorldTransform();
+            }
+            ASSERT_NEAR(terrain_trans.getOrigin().y(), 11.25f, 1e-3f);
+        }
     }
 
     // =========================================================================
@@ -696,7 +707,7 @@ int runPhysicsTests() {
     {
         AssetManager mgr;
         auto terrain = std::make_unique<droidgfxsim::HeightmapTerrain>();
-        const bool loaded = terrain->loadFromPNG("terrain_heightmap.png", &mgr, 81, 81, 1.0f, 1.0f, -1.6f, 6.9f);
+        const bool loaded = terrain->loadFromPNG("terrain_heightmap.png", &mgr, 121, 121, 0.75f, 0.75f, -1.5f, 24.0f);
         ASSERT_TRUE(loaded);
 
         PhysicsTestSimulation sim;
@@ -708,20 +719,20 @@ int runPhysicsTests() {
         ASSERT_TRUE(terrain_body != nullptr);
         ASSERT_TRUE(sim.terrain != nullptr);
 
-        // Dense coordinate grid covering flat central pad, slopes, hills at x = +-22,
-        // and both u+v <= 1 and u+v > 1 quad diagonal triangles
+        // Dense coordinate grid across [-36, +36] covering flat meadow clearing, facing mountain slope,
+        // twin curving ravines, side canyon ridges, and both u+v <= 1 and u+v > 1 quad diagonal triangles
         struct SampleCoord { float x; float z; };
         std::vector<SampleCoord> coords;
-        for (int ix = -32; ix <= 32; ix += 8) {
-            for (int iz = -32; iz <= 32; iz += 8) {
-                coords.push_back({static_cast<float>(ix) + 0.23f, static_cast<float>(iz) + 0.19f});
-                coords.push_back({static_cast<float>(ix) + 0.77f, static_cast<float>(iz) + 0.81f});
+        for (int ix = -36; ix <= 36; ix += 6) {
+            for (int iz = -36; iz <= 36; iz += 6) {
+                coords.push_back({static_cast<float>(ix) + 0.18f, static_cast<float>(iz) + 0.15f});
+                coords.push_back({static_cast<float>(ix) + 0.55f, static_cast<float>(iz) + 0.60f});
             }
         }
         const SampleCoord extra_coords[] = {
-            {0.0f, 0.0f}, {0.0f, 14.0f}, {22.0f, 0.0f}, {-22.0f, 0.0f},
-            {24.0f, 0.0f}, {-24.0f, 0.0f}, {24.0f, 4.0f},
-            {16.35f, 4.25f}, {-18.65f, 6.75f}, {22.15f, -3.45f}, {-22.85f, 5.15f}
+            {0.0f, 18.0f}, {0.0f, 0.0f}, {0.0f, -32.0f}, {35.0f, 0.0f}, {-35.0f, 0.0f},
+            {0.0f, -18.0f}, {-6.5f, -16.0f}, {7.0f, -20.0f},
+            {-7.5f, -15.0f}, {7.5f, -15.0f}, {16.35f, 4.25f}, {-18.65f, 6.75f}
         };
         for (const auto& c : extra_coords) {
             coords.push_back(c);
@@ -739,14 +750,14 @@ int runPhysicsTests() {
             }
         }
 
-        // Flat structural pad vs hilly side ridges
-        ASSERT_NEAR(sim.getTerrainHeightAt(0.0f, 14.0f), 0.0f, 1e-4f);
-        ASSERT_TRUE(sim.getTerrainHeightAt(24.0f, 0.0f) > 1.3f);
-        ASSERT_TRUE(sim.getTerrainHeightAt(22.0f, 0.0f) > 1.5f);
-        ASSERT_TRUE(sim.getTerrainHeightAt(-24.0f, 0.0f) > 1.5f);
-        ASSERT_TRUE(sim.getTerrainHeightAt(24.0f, 4.0f) > 1.5f);
+        // Facing hillside landmarks: meadow crate clearing, mountain slope, and side canyon ridges
+        ASSERT_NEAR(sim.getTerrainHeightAt(0.0f, 18.0f), 0.25f, 1e-3f);
+        ASSERT_TRUE(sim.getTerrainHeightAt(0.0f, -32.0f) > 14.0f);
+        ASSERT_TRUE(sim.getTerrainHeightAt(0.0f, 0.0f) > 3.5f);
+        ASSERT_TRUE(sim.getTerrainHeightAt(35.0f, 0.0f) > 7.0f);
+        ASSERT_TRUE(sim.getTerrainHeightAt(-35.0f, 0.0f) > 7.0f);
 
-        // Drop 3 spheres of radii 0.55f, 0.75f, 1.0f onto flat and sloped terrain coordinates
+        // Drop 3 spheres of radii 0.55f, 0.75f, 1.0f onto the facing hillside slopes slightly above surface
         struct DropSphereSpec {
             const char* name;
             float x;
@@ -754,17 +765,21 @@ int runPhysicsTests() {
             float radius;
         };
         const DropSphereSpec drop_specs[3] = {
-            {"TerrainBall_055", 0.0f, 0.0f, 0.55f},
-            {"TerrainBall_075", 16.0f, 4.0f, 0.75f},
-            {"TerrainBall_100", -18.0f, 6.0f, 1.0f}
+            {"TerrainBall_055", 0.0f, -18.0f, 0.55f},
+            {"TerrainBall_075", -6.5f, -16.0f, 0.75f},
+            {"TerrainBall_100", 7.0f, -20.0f, 1.0f}
         };
         scenegraph::TransformNode ball_nodes[3];
+        float initial_y[3] = {0.0f, 0.0f, 0.0f};
+        float initial_z[3] = {0.0f, 0.0f, 0.0f};
         for (int i = 0; i < 3; ++i) {
             const float h0 = sim.getTerrainHeightAt(drop_specs[i].x, drop_specs[i].z);
+            initial_y[i] = h0 + drop_specs[i].radius + 0.5f;
+            initial_z[i] = drop_specs[i].z;
             ball_nodes[i].name = drop_specs[i].name;
             ball_nodes[i].matrix = glm::translate(
                 glm::mat4(1.0f),
-                glm::vec3(drop_specs[i].x, h0 + drop_specs[i].radius + 4.0f, drop_specs[i].z)
+                glm::vec3(drop_specs[i].x, initial_y[i], drop_specs[i].z)
             );
             sim.addPhysicsSphereNode(&ball_nodes[i], 2.0f, drop_specs[i].radius);
         }
@@ -787,6 +802,24 @@ int runPhysicsTests() {
                     );
                     ASSERT_TRUE(static_cast<float>(pos.y()) >= ground_h + drop_specs[i].radius - 0.04f);
                 }
+            }
+        }
+
+        // Verify each sphere actively rolled downhill toward the camera (+Z) and descended in elevation
+        for (int i = 0; i < 3; ++i) {
+            btRigidBody* body = sim.rigid_bodies[drop_specs[i].name];
+            ASSERT_TRUE(body != nullptr);
+            if (body != nullptr) {
+                btTransform trans;
+                if (body->getMotionState()) {
+                    body->getMotionState()->getWorldTransform(trans);
+                } else {
+                    trans = body->getWorldTransform();
+                }
+                const float final_y = static_cast<float>(trans.getOrigin().y());
+                const float final_z = static_cast<float>(trans.getOrigin().z());
+                ASSERT_TRUE(final_z > initial_z[i] + 2.5f);
+                ASSERT_TRUE(final_y < initial_y[i] - 0.5f);
             }
         }
 
@@ -907,6 +940,53 @@ int runPhysicsTests() {
                 ASSERT_TRUE(static_cast<float>(p.y()) >= floor_h - 0.5f);
             }
         }
+    }
+
+    // =========================================================================
+    // Test 13: Application::shootProjectile Regression Invariance (T66)
+    // =========================================================================
+    {
+        Application app;
+        ASSERT_TRUE(app.camera != nullptr);
+        ASSERT_TRUE(app.simulation != nullptr);
+        ASSERT_TRUE(app.simulation->terrain != nullptr);
+
+        app.camera->position = glm::vec3(0.0f, 5.2f, 22.0f);
+        app.camera->aim(0.0, 0.0);
+        app.camera->update();
+
+        btRigidBody* proj = app.shootProjectile(35.0f);
+        ASSERT_TRUE(proj != nullptr);
+        if (proj != nullptr) {
+            btTransform trans;
+            if (proj->getMotionState()) {
+                proj->getMotionState()->getWorldTransform(trans);
+            } else {
+                trans = proj->getWorldTransform();
+            }
+            const btVector3 pos = trans.getOrigin();
+            const float dx = static_cast<float>(pos.x()) - app.camera->position.x;
+            const float dy = static_cast<float>(pos.y()) - app.camera->position.y;
+            const float dz = static_cast<float>(pos.z()) - app.camera->position.z;
+            const float dist = std::sqrt(dx * dx + dy * dy + dz * dz);
+            ASSERT_TRUE(dist <= 3.5f);
+
+            const float ground_h = app.simulation->getTerrainHeightAt(
+                static_cast<float>(pos.x()), static_cast<float>(pos.z())
+            );
+            ASSERT_TRUE(static_cast<float>(pos.y()) >= ground_h);
+
+            const btVector3 vel = proj->getLinearVelocity();
+            ASSERT_TRUE(static_cast<float>(vel.length()) > 30.0f);
+        }
+
+        int tunnel_events = 0;
+        for (int frame = 0; frame < 180; ++frame) {
+            app.step();
+            tunnel_events += app.getFloorTunnelingCount();
+        }
+        ASSERT_TRUE(tunnel_events == 0);
+        ASSERT_TRUE(app.getFloorTunnelingCount() == 0);
     }
 
     return failures;

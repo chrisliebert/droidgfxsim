@@ -228,58 +228,68 @@ def main():
                 print(f"[{elapsed:.1f}s] Firing Spacebar cannonball #2 into cascading 3D models & crates")
                 send_key(hwnd, VK_SPACE, 0.08)
 
-            # 5-phase 35s calibrated camera trajectory (initial camera at (0, 6.2, 30.0) looking -Z):
-            # Phase 1 (0-7s): Move close to pad & lower y -> 2.2m to inspect ball & prop ground contacts
-            # Phase 2 (7-15s): Pan left (VK_LEFT, VK_W) -> inspect hillside undulations, Boulder_00 & Torus_00 on Ramp_Left
-            # Phase 3 (15-23s): Pan right (VK_RIGHT) -> inspect Ramp_Right, Crystal, Glider, Rook & right hills
-            # Phase 4 (23-29s): Re-center & fire Spacebar cannonballs (24.0s & 26.5s) into cascading 3D models & crates
-            # Phase 5 (29-35s): Pull back & elevate -> wide terrain overview of rolling hills & continuous 3D model stream
+            # 5-phase 35s calibrated camera trajectory for facing hillside (initial camera at (0, 6.8, 32.0) looking -Z):
+            # Phase 1 (0.0s-8.0s): Steady wide framing facing straight up the hillside as initial rocks, wheels,
+            #   crystals, rooks, gliders, barrels, and balls roll down the slopes toward the foreground crate pyramid
+            #   (captures frames 0..2 clearly from launch vantage).
+            # Phase 2 (8.0s-16.0s): Pan slightly left (VK_LEFT, VK_UP) to inspect left mountain ravine,
+            #   rolling granite boulders, and ball-to-hillside contact.
+            # Phase 3 (16.0s-23.0s): Pan right (VK_RIGHT) across central meadow & right ravine inspecting
+            #   rolling torus wheels, crystals, and alpine grass/rock micro-detail.
+            # Phase 4 (23.0s-29.0s): Center aim & fire two Spacebar cannonballs (t=24.0s & t=26.5s)
+            #   up into the descending objects and crates.
+            # Phase 5 (29.0s-35.0s): Wide crane elevation retreat (VK_W, VK_DOWN) framing the sweeping
+            #   hillside, horizon Rayleigh fog, and meadow basin.
             if elapsed - last_nav >= 0.45:
                 last_nav = elapsed
-                if 0.0 <= elapsed < 7.0:
-                    if elapsed < 2.2:
-                        # 4 steps: y 6.2 -> 2.2, z 30 -> 26
-                        send_key(hwnd, VK_S, 0.03)
-                        send_key(hwnd, VK_UP, 0.03)
-                    elif elapsed < 4.5:
-                        # 5 steps: z 26 -> 21 close-up on ground pad contacts
-                        send_key(hwnd, VK_UP, 0.03)
-                    else:
-                        # Subtle lateral close-up sweep across resting balls, crates, and rooks
-                        send_key(hwnd, VK_D, 0.03)
-                elif 7.0 <= elapsed < 15.0:
-                    if elapsed < 10.6:
-                        # Elevate y 2.2 -> ~9.2, yaw left (+0.1 rad/step -> +0.7 rad) toward left hills & Ramp_Left
-                        send_key(hwnd, VK_W, 0.03)
+                if 0.0 <= elapsed < 8.0:
+                    # Steady wide framing from launch vantage (0, 6.8, 32.0) for frames 0..2
+                    pass
+                elif 8.0 <= elapsed < 16.0:
+                    if elapsed < 9.4:
+                        # Yaw slightly left (+0.3 rad) and move forward toward left mountain ravine
                         send_key(hwnd, VK_LEFT, 0.03)
+                        send_key(hwnd, VK_UP, 0.03)
+                    elif elapsed < 12.2:
+                        # Advance toward meadow edge (z ~ 24) and lower slightly to inspect boulders & ball-to-hillside contact
+                        send_key(hwnd, VK_UP, 0.03)
+                        if elapsed >= 10.5 and elapsed < 11.6:
+                            send_key(hwnd, VK_S, 0.03)
                     else:
-                        # Pull slightly back & strafe left to frame rolling hills + Prop_Boulder_00 + Ramp_Left
-                        send_key(hwnd, VK_DOWN, 0.03)
+                        # Gentle lateral drift inspecting left ravine granite boulders & slope contacts
                         send_key(hwnd, VK_A, 0.03)
-                elif 15.0 <= elapsed < 23.0:
-                    if elapsed < 21.0:
-                        # Pan smoothly right across center toward Ramp_Right, Crystal, Glider, Rook & right hills
+                elif 16.0 <= elapsed < 23.0:
+                    if elapsed < 18.8:
+                        # Pan right across central meadow toward right ravine (~6 steps: +0.3 -> -0.3 rad)
                         send_key(hwnd, VK_RIGHT, 0.03)
                         send_key(hwnd, VK_D, 0.03)
-                    else:
+                    elif elapsed < 21.0:
+                        # Strafe slightly right & forward to inspect rolling torus wheels, crystals, and grass/rock detail
+                        send_key(hwnd, VK_D, 0.03)
                         send_key(hwnd, VK_UP, 0.03)
+                    else:
+                        # Settle framing on right slope & meadow micro-detail
+                        pass
                 elif 23.0 <= elapsed < 29.0:
                     if elapsed < 24.0:
-                        # Swing aim back toward center arena before cannonball #1
+                        # Re-center aim toward central hillside & foreground crate pyramid before cannonball #1
                         send_key(hwnd, VK_LEFT, 0.03)
                         send_key(hwnd, VK_A, 0.03)
-                    elif elapsed < 26.4:
+                    elif 24.6 <= elapsed < 25.6:
+                        # Fine-tune aim dead-center toward crates & hillside before cannonball #2
                         send_key(hwnd, VK_LEFT, 0.03)
-                        send_key(hwnd, VK_S, 0.02)
-                    else:
+                        send_key(hwnd, VK_A, 0.03)
+                    elif elapsed >= 26.8:
+                        # Step back slightly to watch cannonball impacts scatter crates & descending objects
                         send_key(hwnd, VK_DOWN, 0.03)
                 elif 29.0 <= elapsed <= 35.0:
-                    # Pull back to wide terrain overview inspecting rolling hills & continuous mixed stream
+                    # Wide crane elevation retreat framing sweeping hillside, horizon Rayleigh fog, and meadow basin
                     if elapsed < 32.5:
+                        send_key(hwnd, VK_W, 0.03)
                         send_key(hwnd, VK_DOWN, 0.03)
                         send_key(hwnd, VK_DOWN, 0.03)
-                        send_key(hwnd, VK_W, 0.02)
                     else:
+                        send_key(hwnd, VK_W, 0.02)
                         send_key(hwnd, VK_DOWN, 0.03)
 
             time.sleep(0.05)
