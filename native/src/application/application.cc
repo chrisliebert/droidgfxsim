@@ -315,8 +315,14 @@ void Application::init() {
 void Application::resize(int width, int height) {
 	if (!camera) return;
 	float aspect = (height > 0) ? ((float)width / (float)height) : 1.0f;
-	camera->projection_matrix = glm::perspective(glm::radians(45.0f), aspect, 0.1f, 1000.0f);
+	camera->setProjection(camera->fov_degrees, aspect, camera->near_plane, camera->far_plane);
 	camera->update();
+}
+
+void Application::setCameraFov(float fov_degrees) {
+	if (camera) {
+		camera->setFov(fov_degrees);
+	}
 }
 
 void Application::spawnSummitWave(int count) {

@@ -20,8 +20,13 @@ Camera::Camera()
 	  right(1.0f, 0.0f, 0.0f),
 	  up(0.0f, 1.0f, 0.0f),
 	  horizontal_angle(M_PI),
-	  vertical_angle(0.0) {
+	  vertical_angle(0.0),
+	  fov_degrees(45.0f),
+	  aspect_ratio(1.5f),
+	  near_plane(0.1f),
+	  far_plane(1000.0f) {
 	aim(0.0, 0.0);
+	updateProjection();
 	update();
 }
 
@@ -62,6 +67,23 @@ void Camera::moveLeft(double distance) {
 
 void Camera::moveRight(double distance) {
 	position += right * static_cast<float>(distance);
+}
+
+void Camera::setFov(float fov_deg) {
+	fov_degrees = std::clamp(fov_deg, 10.0f, 120.0f);
+	updateProjection();
+}
+
+void Camera::setProjection(float fov_deg, float aspect, float near_p, float far_p) {
+	fov_degrees = std::clamp(fov_deg, 10.0f, 120.0f);
+	aspect_ratio = (aspect > 0.0f) ? aspect : 1.0f;
+	near_plane = (near_p > 0.0f) ? near_p : 0.1f;
+	far_plane = (far_p > near_plane) ? far_p : (near_plane + 100.0f);
+	updateProjection();
+}
+
+void Camera::updateProjection() {
+	projection_matrix = glm::perspective(glm::radians(fov_degrees), aspect_ratio, near_plane, far_plane);
 }
 
 void Camera::update() {

@@ -1036,5 +1036,26 @@ int runPhysicsTests() {
         ASSERT_TRUE(app.getFloorTunnelingCount() == 0);
     }
 
+    // =========================================================================
+    // Test 15: Application Camera FOV & Resize Preservation
+    // =========================================================================
+    {
+        Application app;
+        ASSERT_TRUE(app.camera != nullptr);
+        if (app.camera != nullptr) {
+            app.setCameraFov(78.0f);
+            ASSERT_TRUE(app.camera->fov_degrees == 78.0f);
+            ASSERT_NEAR(app.camera->projection_matrix[1][1],
+                        1.0f / std::tan(glm::radians(78.0f) * 0.5f), 1e-4f);
+
+            app.resize(1600, 900);
+            ASSERT_TRUE(app.camera->fov_degrees == 78.0f);
+            ASSERT_NEAR(app.camera->projection_matrix[1][1],
+                        1.0f / std::tan(glm::radians(78.0f) * 0.5f), 1e-4f);
+            ASSERT_NEAR(app.camera->projection_matrix[0][0],
+                        app.camera->projection_matrix[1][1] / (1600.0f / 900.0f), 1e-4f);
+        }
+    }
+
     return failures;
 }

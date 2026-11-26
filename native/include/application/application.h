@@ -62,6 +62,7 @@ public:
 	}
 
 	void resize(int width, int height);
+	void setCameraFov(float fov_degrees);
 
 	// Interactive physics & debug controls
 	bool cascade_mode_active;

@@ -23,12 +23,19 @@ public:
 	glm::vec3 up;
 	double horizontal_angle;
 	double vertical_angle;
+	float fov_degrees;
+	float aspect_ratio;
+	float near_plane;
+	float far_plane;
 
 	void aim(double dHeading, double dPitch);
 	void moveForward(double distance);
 	void moveBackward(double distance);
 	void moveLeft(double distance);
 	void moveRight(double distance);
+	void setFov(float fov_deg);
+	void setProjection(float fov_deg, float aspect, float near_p = 0.1f, float far_p = 1000.0f);
+	void updateProjection();
 	void update();
 };
 

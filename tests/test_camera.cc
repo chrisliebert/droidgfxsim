@@ -230,5 +230,44 @@ int runCameraTests() {
         }
     }
 
+    // Test 8: Camera FOV Projection Updates, Clamping & Aspect Preservation
+    {
+        Camera cam;
+        ASSERT_NEAR(cam.fov_degrees, 45.0f, 1e-4f);
+        ASSERT_NEAR(cam.projection_matrix[1][1],
+                    1.0f / std::tan(glm::radians(45.0f) * 0.5f), 1e-4f);
+
+        cam.setFov(75.0f);
+        ASSERT_NEAR(cam.fov_degrees, 75.0f, 1e-4f);
+        ASSERT_NEAR(cam.projection_matrix[1][1],
+                    1.0f / std::tan(glm::radians(75.0f) * 0.5f), 1e-4f);
+
+        cam.setFov(25.0f);
+        ASSERT_NEAR(cam.fov_degrees, 25.0f, 1e-4f);
+        ASSERT_NEAR(cam.projection_matrix[1][1],
+                    1.0f / std::tan(glm::radians(25.0f) * 0.5f), 1e-4f);
+
+        // Verify out-of-range clamping [10.0f, 120.0f]
+        cam.setFov(5.0f);
+        ASSERT_NEAR(cam.fov_degrees, 10.0f, 1e-4f);
+        ASSERT_NEAR(cam.projection_matrix[1][1],
+                    1.0f / std::tan(glm::radians(10.0f) * 0.5f), 1e-4f);
+
+        cam.setFov(160.0f);
+        ASSERT_NEAR(cam.fov_degrees, 120.0f, 1e-4f);
+        ASSERT_NEAR(cam.projection_matrix[1][1],
+                    1.0f / std::tan(glm::radians(120.0f) * 0.5f), 1e-4f);
+
+        // Verify setProjection updates both FOV and aspect ratio
+        const float aspect_16_9 = 16.0f / 9.0f;
+        cam.setProjection(65.0f, aspect_16_9);
+        ASSERT_NEAR(cam.fov_degrees, 65.0f, 1e-4f);
+        ASSERT_NEAR(cam.aspect_ratio, aspect_16_9, 1e-4f);
+        ASSERT_NEAR(cam.projection_matrix[1][1],
+                    1.0f / std::tan(glm::radians(65.0f) * 0.5f), 1e-4f);
+        ASSERT_NEAR(cam.projection_matrix[0][0],
+                    cam.projection_matrix[1][1] / aspect_16_9, 1e-4f);
+    }
+
     return failures;
 }

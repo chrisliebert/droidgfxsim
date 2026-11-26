@@ -3,6 +3,7 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <algorithm>
+#include <cmath>
 #include <cstring>
 #include <iostream>
 
@@ -356,6 +357,10 @@ static void renderImGuiWidgets(double frame_time, bool& reset_vk_cache) {
 			reset_vk_cache = true;
 		}
 	}
+	if (application && application->camera &&
+	    std::abs(controls.camera_fov - application->camera->fov_degrees) > 0.01f) {
+		application->setCameraFov(controls.camera_fov);
+	}
 
 	imgui_overlay.endFrame();
 }
@@ -486,6 +491,9 @@ int main(int argc, char** argv) {
 						glViewport(0, 0, fb_w, fb_h);
 					}
 					application->resize(fb_w, fb_h);
+					if (!headless && imgui_overlay.isInitialized()) {
+						application->setCameraFov(imgui_overlay.getControls().camera_fov);
+					}
 					current_time = glfwGetTime();
 					accumulator = 0.0;
 				}
