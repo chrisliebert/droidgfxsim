@@ -21,7 +21,7 @@
 
 `droidgfxsim` is a modular, high-performance cross-platform 3D graphics and physics simulation engine authored in modern **C++20**. Designed as a production-grade portfolio centerpiece, it showcases real-time directional soft shadows ($3\times3$ PCF), tactile rigid-body spring dragging, continuous collision detection (CCD), atomic runtime shader hot-reloading, exact $O(N)$ Welzl bounding spheres, and in-engine Dear ImGui telemetry.
 
-![droidgfxsim Live Simulation — Hillside Cascade & Translucent HUD](screenshot.jpg)
+![droidgfxsim Live Simulation — Hillside Cascade & Translucent HUD](screenshot.png)
 
 ### Key Engineering Highlights
 - 🌋 **Next-Gen Vulkan 1.3 Architecture (`--vulkan`):** Modern low-overhead explicit rendering backend alongside OpenGL 3.3 and GLES 2.0. Explicit physical device selection, dedicated graphics/compute queues, two-tier memory model (Host-visible staging buffer mapped to Device-local VRAM), pipeline barriers, and pre-compiled SPIR-V shaders.
