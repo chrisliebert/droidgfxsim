@@ -1,4 +1,4 @@
-// Copyright (C) 2017 Chris Liebert
+// Copyright (C) 2017-2026 Chris Liebert
 
 #include "graphics/gl_code.h"
 #include "graphics/scene_graph.h"
@@ -50,7 +50,7 @@ void GL2SceneGraphRenderer::walk_render(Node* node) {
 			glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex),	BUFFER_OFFSET(3 * sizeof(float)));
 			glEnableVertexAttribArray(2);
 			glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex),	BUFFER_OFFSET(6 * sizeof(float)));
-			glDrawElements(GL_TRIANGLES, (GLsizei)(sizeof(GLuint) * geometry_node->index_data.size()), GL_UNSIGNED_INT, BUFFER_OFFSET(0));
+			glDrawElements(GL_TRIANGLES, (GLsizei)geometry_node->index_data.size(), GL_UNSIGNED_INT, BUFFER_OFFSET(0));
 			glDisableVertexAttribArray(2);
 			glDisableVertexAttribArray(1);
 			glDisableVertexAttribArray(0);
@@ -60,17 +60,26 @@ void GL2SceneGraphRenderer::walk_render(Node* node) {
 	} else if(node->type == NodeType::Material) {
 		MaterialNode* material_node = (MaterialNode*) node;
 		assert(material_node);
-		std::map<std::string, GLuint>::iterator texture_id_itr = texture_ids.find(material_node->diffuse_texture);
-		if(texture_id_itr == texture_ids.end()) {
-			LOGI("Unable to use texture %s", material_node->diffuse_texture.c_str());
-		} else {
-			glUniform1ui(glGetUniformLocation(shader_program, "diffuseTexture"), 0);
-			GLuint texture_id = texture_id_itr->second;
-			glBindTexture(GL_TEXTURE_2D, texture_id);
+		GLuint texture_id = default_texture_id;
+		if(!material_node->diffuse_texture.empty()) {
+			std::map<std::string, GLuint>::iterator texture_id_itr = texture_ids.find(material_node->diffuse_texture);
+			if(texture_id_itr != texture_ids.end()) {
+				texture_id = texture_id_itr->second;
+			}
+		}
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, texture_id);
+		GLint tex_loc = glGetUniformLocation(shader_program, "diffuseTexture");
+		if (tex_loc >= 0) {
+			glUniform1i(tex_loc, 0);
 		}
 	} else if(node->type == NodeType::Transform) {
 		TransformNode* tn = (TransformNode*) node;
-		glUniformMatrix4fv(matrix_uniform_location, 1, GL_FALSE, glm::value_ptr(tn->matrix));
+		assert(tn);
+		GLint matrix_loc = static_cast<GLint>(matrix_uniform_location);
+		if (matrix_loc >= 0) {
+			glUniformMatrix4fv(matrix_loc, 1, GL_FALSE, glm::value_ptr(tn->matrix));
+		}
 	}
 	for(std::vector<Node*>::iterator it = node->children.begin(); it!=node->children.end(); ++it) {
 		Node* child = *it;
@@ -79,6 +88,17 @@ void GL2SceneGraphRenderer::walk_render(Node* node) {
 }
 
 GL2SceneGraphRenderer::GL2SceneGraphRenderer(std::map<std::string, Image*>& images) {
+	default_texture_id = 0;
+	const unsigned char white_pixel[4] = { 255, 255, 255, 255 };
+	glGenTextures(1, &default_texture_id);
+	glBindTexture(GL_TEXTURE_2D, default_texture_id);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, white_pixel);
+	glBindTexture(GL_TEXTURE_2D, 0);
+
 	for(std::map<std::string, Image*>::iterator it = images.begin(); it != images.end(); ++it) {
 		if(texture_ids.find(it->first) == texture_ids.end()) {
 			texture_ids.insert(std::make_pair(it->first, it->second->loadTexture()));
@@ -98,6 +118,8 @@ GL2SceneGraphRenderer::GL2SceneGraphRenderer(std::map<std::string, Image*>& imag
 		"uniform highp mat4 matrix;               											\n"
 		"varying highp vec3 fragPos;														\n"
 		"varying highp vec3 normal;															\n"
+		"varying highp vec3 worldPos;														\n"
+		"varying highp vec3 worldNormal;													\n"
 		"varying highp vec2 texcoord;														\n"
 		"varying highp vec3 lightPos;														\n"
 		"highp mat4 mat4_inverse(highp mat4 m) {											\n"
@@ -119,6 +141,9 @@ GL2SceneGraphRenderer::GL2SceneGraphRenderer(std::map<std::string, Image*>& imag
 		"      b10 = a21 * a33 - a23 * a31,													\n"
 		"      b11 = a22 * a33 - a23 * a32,													\n"
 		"      det = b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06;	\n"
+		"   if (det == 0.0 || abs(det) < 0.000001) {										\n"
+		"       det = (det < 0.0) ? -0.000001 : 0.000001;									\n"
+		"   }																				\n"
 		"  return mat4(																		\n"
 		"      a11 * b11 - a12 * b10 + a13 * b09,											\n"
 		"      a02 * b10 - a01 * b11 - a03 * b09,											\n"
@@ -148,82 +173,153 @@ GL2SceneGraphRenderer::GL2SceneGraphRenderer(std::map<std::string, Image*>& imag
 		"                 vec4(i0.z, i1.z, i2.z, i3.z),										\n"
 		"                 vec4(i0.w, i1.w, i2.w, i3.w)										\n"
 		"                 );																\n"
-		"    return outMatrix;																\n"
+		"     return outMatrix;																\n"
 		"}																					\n"
 		"void main() {																		\n"
-		"	gl_Position = projection * modelview											\n"
-		"		* matrix * vec4(vPosition, 1.0);											\n"
-		"	fragPos = vec3(modelview * matrix * vec4(vPosition, 1.0));						\n"
+		"	highp vec4 wp = matrix * vec4(vPosition, 1.0);									\n"
+		"	gl_Position = projection * modelview * wp;										\n"
+		"	fragPos = vec3(modelview * wp);													\n"
+		"	worldPos = wp.xyz;																\n"
 		"	normal = mat3(mat4_transpose(mat4_inverse(modelview * matrix))) * vNormal;		\n"
-		"	highp vec3 lightPosIn = vec3(0.0, 10.0, 0.0);									\n"
+		"	worldNormal = mat3(matrix) * vNormal;											\n"
+		"	vec3 lightPosIn = vec3(22.0, 44.0, 28.0);										\n"
 		"	lightPos = vec3(modelview * vec4(lightPosIn, 1.0));								\n"
 		"	texcoord = vTexCoord;															\n"
 		"}																					\n";
 
 	const char* fragment_shader_src =
-		"#version 100                                  										\n"
-		"precision mediump float;                                      						\n"
-		"varying vec3 fragPos;																\n"
-		"varying vec3 normal;																\n"
-		"varying vec2 texcoord;																\n"
-		"varying vec3 lightPos;																\n"
-		"//uniform vec3 lightColor;															\n"
-		"//uniform vec3 objectColor;														\n"
-		"uniform sampler2D diffuseTexture;													\n"
-		"void main()																		\n"
-		"{																					\n"
-		"	vec3 lightColor = vec3(0.5, 0.5, 0.5);											\n"
-		"	vec3 objectColor = texture2D(diffuseTexture, texcoord).rgb;						\n"
-		"	float ambientStrength = 0.1;													\n"
-		"	vec3 ambient = ambientStrength * lightColor;    								\n"
-		"	vec3 norm = normalize(normal);													\n"
-		"	vec3 lightDir = normalize(lightPos - fragPos);									\n"
-		"	float diff = max(dot(norm, lightDir), 0.0);										\n"
-		"	vec3 diffuse = diff * lightColor;												\n"
-		"	float specularStrength = 0.5;													\n"
-		"	vec3 viewDir = normalize(-fragPos);												\n"
-		"	vec3 reflectDir = reflect(-lightDir, norm);  									\n"
-		"	float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0);						\n"
-		"	vec3 specular = specularStrength * spec * lightColor; 							\n"
-		"	vec3 result = (ambient + diffuse + specular) * objectColor;						\n"
-		"	gl_FragColor = vec4(result, 1.0);												\n"
-		"}																					\n";
+		"#version 100                                                   \n"
+		"precision mediump float;                           			\n"
+		"varying highp vec3 fragPos;									\n"
+		"varying highp vec3 normal;										\n"
+		"varying highp vec3 worldPos;									\n"
+		"varying highp vec3 worldNormal;								\n"
+		"varying highp vec2 texcoord;									\n"
+		"varying highp vec3 lightPos;									\n"
+		"uniform sampler2D diffuseTexture;								\n"
+		"highp float hash21(highp vec2 p) {								\n"
+		"	p = fract(p * vec2(123.34, 456.21));						\n"
+		"	p += dot(p, p + 45.32);										\n"
+		"	return fract(p.x * p.y);									\n"
+		"}																\n"
+		"highp float valueNoise(highp vec2 p) {							\n"
+		"	highp vec2 i = floor(p);									\n"
+		"	highp vec2 f = fract(p);									\n"
+		"	highp vec2 u = f * f * (3.0 - 2.0 * f);						\n"
+		"	highp float a = hash21(i);									\n"
+		"	highp float b = hash21(i + vec2(1.0, 0.0));					\n"
+		"	highp float c = hash21(i + vec2(0.0, 1.0));					\n"
+		"	highp float d = hash21(i + vec2(1.0, 1.0));					\n"
+		"	return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);			\n"
+		"}																\n"
+		"void main() {													\n"
+		"	// Hemisphere sky/earth ambient								\n"
+		"	vec3 wNorm = (dot(worldNormal, worldNormal) > 0.0001)		\n"
+		"		? normalize(worldNormal) : vec3(0.0, 1.0, 0.0);			\n"
+		"	vec3 hemiAmbient = mix(vec3(0.32, 0.28, 0.24), vec3(0.58, 0.72, 0.88), \n"
+		"		clamp(wNorm.y * 0.5 + 0.5, 0.0, 1.0)) * 0.42;			\n"
+		"																\n"
+		"	// Sun key light (diffuse + subtle Blinn-Phong specular)	\n"
+		"	vec3 lightColor = vec3(1.0, 0.97, 0.91);					\n"
+		"	vec3 norm = (dot(normal, normal) > 0.0001)					\n"
+		"		? normalize(normal) : vec3(0.0, 0.0, 1.0);				\n"
+		"	vec3 lightDir = normalize(lightPos - fragPos);				\n"
+		"	float diff = max(dot(norm, lightDir), 0.0);					\n"
+		"	vec3 diffuse = diff * lightColor;							\n"
+		"																\n"
+		"	vec3 viewDir = normalize(-fragPos);							\n"
+		"	vec3 halfwayDir = normalize(lightDir + viewDir);			\n"
+		"	float spec = pow(max(dot(norm, halfwayDir), 0.0), 32.0);	\n"
+		"	vec3 specular = 0.18 * spec * lightColor;					\n"
+		"																\n"
+		"	vec3 result = hemiAmbient + diffuse + specular;				\n"
+		"	vec4 texColor = texture2D(diffuseTexture, texcoord);		\n"
+		"																\n"
+		"	// Multi-scale world-space micro-grain modulation faded over distance \n"
+		"	float dist = length(fragPos);								\n"
+		"	highp float nCoarse = valueNoise(worldPos.xz * 2.0);		\n"
+		"	highp float nFine = valueNoise(worldPos.xz * 8.333 + vec2(17.3, 9.1)); \n"
+		"	float grain = 0.60 * nCoarse + 0.40 * nFine;				\n"
+		"	float detailFade = 1.0 - smoothstep(10.0, 42.0, dist);		\n"
+		"	float microMod = mix(1.0, 0.90 + 0.20 * grain, detailFade);	\n"
+		"																\n"
+		"	vec3 litColor = (texColor.rgb * microMod) * result;			\n"
+		"	float fogFactor = smoothstep(48.0, 120.0, dist);			\n"
+		"	vec3 fogColor = vec3(0.55, 0.68, 0.82);						\n"
+		"	gl_FragColor = vec4(mix(litColor, fogColor, fogFactor),		\n"
+		"		texColor.a);											\n"
+		"}																\n";
 
 	shader_program = createProgram(vertex_shader_src, fragment_shader_src);
-	glUseProgram(shader_program);
-	glActiveTexture(GL_TEXTURE0);
-	matrix_uniform_location = glGetUniformLocation(shader_program, "matrix");
+	matrix_uniform_location = static_cast<GLuint>(-1);
+	if (shader_program != 0) {
+		matrix_uniform_location = static_cast<GLuint>(glGetUniformLocation(shader_program, "matrix"));
+	}
 }
 
 GL2SceneGraphRenderer::~GL2SceneGraphRenderer() {
-	for(std::map<GeometryNode*, GLuint>::iterator it = ibos.begin(); it != ibos.end(); it++) {
-		GLuint ibo = it->second;
-		glDeleteBuffers(1, &ibo);
+	if(shader_program) {
+		glDeleteProgram(shader_program);
+		shader_program = 0;
 	}
-	for(std::map<GeometryNode*, GLuint>::iterator it = vbos.begin(); it != vbos.end(); it++) {
-		GLuint vbo = it->second;
-		glDeleteBuffers(1, &vbo);
-	}
-	for(std::map<std::string, GLuint>::iterator it = texture_ids.begin(); it != texture_ids.end(); ++it) {
-		GLuint texture_id = it->second;
-		glDeleteTextures(1, &texture_id);
+	for(auto pair : vbos) {
+		glDeleteBuffers(1, &pair.second);
 	}
 	vbos.clear();
+	for(auto pair : ibos) {
+		glDeleteBuffers(1, &pair.second);
+	}
 	ibos.clear();
-	glDeleteProgram(shader_program);
+	for(auto pair : texture_ids) {
+		glDeleteTextures(1, &pair.second);
+	}
+	texture_ids.clear();
+	if(default_texture_id) {
+		glDeleteTextures(1, &default_texture_id);
+		default_texture_id = 0;
+	}
+	glBindTexture(GL_TEXTURE_2D, 0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+	glUseProgram(0);
 }
 
 void GL2SceneGraphRenderer::render(Node* node, Camera* camera) {
-	glEnable(GL_DEPTH_TEST);
-	walk_init_buffers(node);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	if(nullptr == node || nullptr == camera || shader_program == 0) return;
 	glUseProgram(shader_program);
-	GLint projection_location = glGetUniformLocation(shader_program, "projection");//todo save this
-	glUniformMatrix4fv(projection_location, 1, GL_FALSE, glm::value_ptr(camera->projection_matrix));
-	GLint modelview_location = glGetUniformLocation(shader_program, "modelview");//todo save this
-	glUniformMatrix4fv(modelview_location, 1, GL_FALSE, glm::value_ptr(camera->modelview_matrix));
-	glUniform3f(glGetUniformLocation(shader_program, "lightPos"), 0.0f, 10.0f, -10.0f);
-	glUniform1ui(glGetUniformLocation(shader_program, "diffuseTexture"), 0);
+	walk_init_buffers(node);
+	glClearColor(0.55f, 0.68f, 0.82f, 1.0f);
+	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+	glEnable(GL_DEPTH_TEST);
+	glEnable(GL_CULL_FACE);
+	glCullFace(GL_BACK);
+	GLint projection_loc = glGetUniformLocation(shader_program, "projection");
+	if (projection_loc >= 0) {
+		glUniformMatrix4fv(projection_loc, 1, GL_FALSE,
+				glm::value_ptr(camera->projection_matrix));
+	}
+	GLint modelview_loc = glGetUniformLocation(shader_program, "modelview");
+	if (modelview_loc >= 0) {
+		glUniformMatrix4fv(modelview_loc, 1, GL_FALSE,
+				glm::value_ptr(camera->modelview_matrix));
+	}
+	GLint matrix_loc = static_cast<GLint>(matrix_uniform_location);
+	if (matrix_loc >= 0) {
+		glm::mat4 identity(1.0f);
+		glUniformMatrix4fv(matrix_loc, 1, GL_FALSE, glm::value_ptr(identity));
+	}
+
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, default_texture_id);
+	GLint tex_loc = glGetUniformLocation(shader_program, "diffuseTexture");
+	if (tex_loc >= 0) {
+		glUniform1i(tex_loc, 0);
+	}
+
 	walk_render(node);
+
+	glBindTexture(GL_TEXTURE_2D, 0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 	glUseProgram(0);
 }

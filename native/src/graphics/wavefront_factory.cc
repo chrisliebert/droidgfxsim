@@ -1,12 +1,16 @@
-// Copyright (C) 2017 Chris Liebert
+// Copyright (C) 2017-2026 Chris Liebert
 
 #include "common/asset_manager.hpp"
 #include "common/log.h"
+#include "common/MathUtil.h"
 #include "graphics/wavefront_factory.h"
 
 #include "rapidxml.hpp"
 #include "rapidxml_utils.hpp"
 #include "rapidxml_print.hpp"
+
+#define TINYOBJLOADER_IMPLEMENTATION
+#include "tiny_obj_loader.h"
 
 WavefrontSceneGraphFactory::WavefrontSceneGraphFactory() {
 	start_position = 0;
@@ -18,22 +22,20 @@ WavefrontSceneGraphFactory::~WavefrontSceneGraphFactory() {
 	textures.clear();
 }
 
-// Used to check file extension
 bool hasEnding(std::string const &fullString, std::string const &ending) {
 	if (fullString.length() >= ending.length()) {
-		return (0
-				== fullString.compare(fullString.length() - ending.length(),
-						ending.length(), ending));
+		return (0 == fullString.compare(fullString.length() - ending.length(),
+				ending.length(), ending));
 	} else {
 		return false;
 	}
 }
 
 void WavefrontSceneGraphFactory::addTexture(const char* texture_file_name) {
-	std::set<std::string>::const_iterator it = textures.find(texture_file_name);
-
-	if (it == textures.end()) {
-		textures.insert(std::string(texture_file_name));
+	if (!texture_file_name) return;
+	std::string s(texture_file_name);
+	if (textures.find(s) == textures.end()) {
+		textures.insert(s);
 	}
 }
 
@@ -55,31 +57,23 @@ void calcNormal(float N[3], float v0[3], float v1[3], float v2[3]) {
 	float len2 = N[0] * N[0] + N[1] * N[1] + N[2] * N[2];
 	if (len2 > 0.0f) {
 		float len = sqrtf(len2);
-
 		N[0] /= len;
 		N[1] /= len;
+		N[2] /= len;
 	}
 }
 
-// Cross-platform directory separator
-#ifdef _MSC_VER
-#define DIRECTORY_PATH_SEPARATOR "\\"
-#else
-#define DIRECTORY_PATH_SEPARATOR "/"
-#endif
-
-void replaceSubStr(string& source, string& it, string& with) {
-	int pos;
-	do {
-		pos = (int) source.find(it);
-		if (pos != -1)
-			source.replace(pos, it.length(), with);
-	} while (pos != -1);
+void replaceSubStr(std::string& source, const std::string& it, const std::string& with) {
+	size_t pos = 0;
+	while ((pos = source.find(it, pos)) != std::string::npos) {
+		source.replace(pos, it.length(), with);
+		pos += with.length();
+	}
 }
 
-void replaceSubStr(string& source, const char* it, const char* with) {
-	std::string its(it);
-	std::string withs(with);
+void replaceSubStr(std::string& source, const char* it, const char* with) {
+	std::string its(it ? it : "");
+	std::string withs(with ? with : "");
 	replaceSubStr(source, its, withs);
 }
 
@@ -87,20 +81,14 @@ class MaterialStringStreamReader : public tinyobj::MaterialReader {
 public:
 	MaterialStringStreamReader(const std::string& _mat_sstream)
 	: mat_sstream(_mat_sstream) {}
-	virtual ~MaterialStringStreamReader() {}
+	virtual ~MaterialStringStreamReader() override = default;
 	virtual bool operator()(const std::string& mat_id,
 			std::vector<tinyobj::material_t>* materials,
 			std::map<std::string, int>* mat_map,
-			std::string* err) {
+			std::string* warn,
+			std::string* err) override {
 		(void)mat_id;
-		std::string warning;
-		tinyobj::LoadMtl(mat_map, materials, &mat_sstream, &warning);
-
-		if (!warning.empty()) {
-			if (err) {
-				(*err) += warning;
-			}
-		}
+		tinyobj::LoadMtl(mat_map, materials, &mat_sstream, warn, err);
 		return true;
 	}
 
@@ -108,31 +96,31 @@ private:
 	std::stringstream mat_sstream;
 };
 
-// Find all the .mtl files included in a wavefront .obj source
 std::vector<std::string> getMTLFilenames(const std::string& obj_contents) {
 	std::vector<std::string> filenames;
 	std::stringstream ss(obj_contents);
 	std::string line;
 	while(std::getline(ss, line, '\n')) {
 		size_t pos = line.find("mtllib ");
-		if( pos != string::npos) {
-			std::string mtl_filename = line.substr(pos+7);
-			// Strip spaces and \r
+		if( pos != std::string::npos) {
+			std::string mtl_filename = line.substr(pos + 7);
 			replaceSubStr(mtl_filename, " ", "");
 			replaceSubStr(mtl_filename, "\r", "");
-			// Strip comments
 			size_t comment_pos = mtl_filename.find("#");
-			if(comment_pos != string::npos) {
+			if(comment_pos != std::string::npos) {
 				mtl_filename = mtl_filename.substr(0, comment_pos);
 			}
-			filenames.push_back(mtl_filename);
+			if(!mtl_filename.empty()) {
+				filenames.push_back(mtl_filename);
+			}
 		}
 	}
 	return filenames;
 }
 
 bool WavefrontSceneGraphFactory::addWavefront(const char* file_name, glm::mat4 matrix, AssetManager* asset_manager) {
-	// Prevent file from being loaded more than once.
+	(void)matrix;
+	if (!file_name || !asset_manager) return false;
 	std::string filename_str(file_name);
 	if(wavefront_files.find(filename_str) == wavefront_files.end()) {
 		wavefront_files.insert(filename_str);
@@ -142,46 +130,55 @@ bool WavefrontSceneGraphFactory::addWavefront(const char* file_name, glm::mat4 m
 	}
 
 	size_t initial_num_materials = this->materials.size();
-	size_t total_duplicates_removed = 0;
 	tinyobj::attrib_t attrib;
 	std::vector<tinyobj::shape_t> shapes;
 	std::vector<tinyobj::material_t> material_list;
-	std::string err;
+	std::string warn, err;
 	std::stringstream obj_stream;
 	std::stringstream mat_stream;
+
 	const std::string obj_contents = asset_manager->loadTextFile(file_name);
+	if (obj_contents.empty()) {
+		LOGE("Failed to load OBJ file: %s", file_name);
+		return false;
+	}
 	std::vector<std::string> mtl_filenames = getMTLFilenames(obj_contents);
 	obj_stream << obj_contents;
-	for(std::vector<std::string>::iterator it = mtl_filenames.begin(); it != mtl_filenames.end(); ++it) {
-		std::string mtl_filename = *it;
+	for(const auto& mtl_filename : mtl_filenames) {
 		std::string mtl_contents = asset_manager->loadTextFile(mtl_filename.c_str());
 		mat_stream << mtl_contents;
 	}
 	const std::string mtls_contents = mat_stream.str();
 	MaterialStringStreamReader mat_ss_reader(mtls_contents);
-	bool ret = tinyobj::LoadObj(&attrib, &shapes, &material_list, &err, &obj_stream, &mat_ss_reader);
-	if(!ret) {
-		return false;
-	}
-	std::stringstream file_name_path;
-	file_name_path << file_name;
-	std::stringstream namess;
-	namess << name << "[" << file_name_path.str() << "]";
-	this->name = namess.str();
-	if (!err.empty()) {
-		LOGE("%s\n", err.c_str());
-		return false;
-	}
+	bool ret = tinyobj::LoadObj(&attrib, &shapes, &material_list, &warn, &err, &obj_stream, &mat_ss_reader);
 
+	if (!warn.empty()) {
+		LOGI("tinyobj warning: %s", warn.c_str());
+	}
 	if (!ret) {
+		LOGE("tinyobj error: %s", err.c_str());
 		return false;
 	}
 
-	// load diffuse textures
+	std::stringstream namess;
+	namess << name << "[" << file_name << "]";
+	this->name = namess.str();
+
+	// Ensure default material exists if none provided
+	if (material_list.empty()) {
+		tinyobj::material_t default_mat;
+		default_mat.name = "default_material";
+		default_mat.diffuse[0] = 0.8f;
+		default_mat.diffuse[1] = 0.8f;
+		default_mat.diffuse[2] = 0.8f;
+		default_mat.diffuse_texname = "";
+		material_list.push_back(default_mat);
+	}
+
+	// Load diffuse textures and create material nodes
 	for (size_t mi = 0; mi < material_list.size(); mi++) {
 		tinyobj::material_t* mp = &material_list[mi];
 		if (mp->diffuse_texname.length() > 0) {
-			// Check for paths that are not valid (unix support for paths with \ or \\ instead of /
 #ifndef _MSC_VER
 			replaceSubStr(mp->diffuse_texname, "\\\\", "/");
 			replaceSubStr(mp->diffuse_texname, "\\", "/");
@@ -196,95 +193,52 @@ bool WavefrontSceneGraphFactory::addWavefront(const char* file_name, glm::mat4 m
 		materials.push_back(mat_node);
 	}
 
-	// Load data
-	std::vector<Vertex> vertices;
+	// Load geometry data
 	for (size_t s = 0; s < shapes.size(); s++) {
 		GeometryNode* geom_node = new GeometryNode();
 		assert(geom_node);
-		geom_node->center[0] = 0.f;
-		geom_node->center[1] = 0.f;
-		geom_node->center[2] = 0.f;
+		std::vector<Vertex> vertices;
 
 		for (size_t f = 0; f < shapes[s].mesh.indices.size() / 3; f++) {
 			tinyobj::index_t idx0 = shapes[s].mesh.indices[3 * f + 0];
 			tinyobj::index_t idx1 = shapes[s].mesh.indices[3 * f + 1];
 			tinyobj::index_t idx2 = shapes[s].mesh.indices[3 * f + 2];
-			int current_material_id = shapes[s].mesh.material_ids[f];
-			if ((current_material_id < 0)
-					|| (current_material_id >= material_list.size())) {
-				// Invalid material ID. Use default material.
-				current_material_id = (int) material_list.size(); // Default material is added to the last item in `materialList`.
-				LOGE(
-						"Invalid material index: %i reverting to default material.",
-						current_material_id);
-			}
 
-			float diffuse[3];
-			for (size_t i = 0; i < 3; i++) {
-				diffuse[i] = material_list[current_material_id].diffuse[i];
-			}
-
-			float tc[3][2];
-			if (attrib.texcoords.size() > 2 * idx0.texcoord_index + 1) {
+			float tc[3][2] = {{0.0f, 0.0f}, {0.0f, 0.0f}, {0.0f, 0.0f}};
+			if (idx0.texcoord_index >= 0 && attrib.texcoords.size() > (size_t)(2 * idx0.texcoord_index + 1)) {
 				tc[0][0] = attrib.texcoords[2 * idx0.texcoord_index];
-				tc[0][1] = 1.0f
-						- attrib.texcoords[2 * idx0.texcoord_index + 1];
-			} else {
-				tc[0][0] = 0.f;
-				tc[0][1] = 0.f;
+				tc[0][1] = 1.0f - attrib.texcoords[2 * idx0.texcoord_index + 1];
 			}
-			if (attrib.texcoords.size() > 2 * idx1.texcoord_index + 1) {
+			if (idx1.texcoord_index >= 0 && attrib.texcoords.size() > (size_t)(2 * idx1.texcoord_index + 1)) {
 				tc[1][0] = attrib.texcoords[2 * idx1.texcoord_index];
-				tc[1][1] = 1.0f
-						- attrib.texcoords[2 * idx1.texcoord_index + 1];
-			} else {
-				tc[1][0] = 0.f;
-				tc[1][1] = 0.f;
+				tc[1][1] = 1.0f - attrib.texcoords[2 * idx1.texcoord_index + 1];
 			}
-			if (attrib.texcoords.size() > 2 * idx2.texcoord_index + 1) {
+			if (idx2.texcoord_index >= 0 && attrib.texcoords.size() > (size_t)(2 * idx2.texcoord_index + 1)) {
 				tc[2][0] = attrib.texcoords[2 * idx2.texcoord_index];
-				tc[2][1] = 1.0f
-						- attrib.texcoords[2 * idx2.texcoord_index + 1];
-			} else {
-				tc[2][0] = 0.f;
-				tc[2][1] = 0.f;
+				tc[2][1] = 1.0f - attrib.texcoords[2 * idx2.texcoord_index + 1];
 			}
 
 			float v[3][3];
+			int f0 = idx0.vertex_index;
+			int f1 = idx1.vertex_index;
+			int f2 = idx2.vertex_index;
 			for (int k = 0; k < 3; k++) {
-				int f0 = idx0.vertex_index;
-				int f1 = idx1.vertex_index;
-				int f2 = idx2.vertex_index;
-				assert(f0 >= 0);
-				assert(f1 >= 0);
-				assert(f2 >= 0);
 				v[0][k] = attrib.vertices[3 * f0 + k];
 				v[1][k] = attrib.vertices[3 * f1 + k];
 				v[2][k] = attrib.vertices[3 * f2 + k];
 			}
 
 			float n[3][3];
-			if (attrib.normals.size() > 0) {
-				int f0 = idx0.normal_index;
-				int f1 = idx1.normal_index;
-				int f2 = idx2.normal_index;
-				assert(f0 >= 0);
-				assert(f1 >= 0);
-				assert(f2 >= 0);
+			if (!attrib.normals.empty() && idx0.normal_index >= 0 && idx1.normal_index >= 0 && idx2.normal_index >= 0) {
 				for (int k = 0; k < 3; k++) {
-					n[0][k] = attrib.normals[3 * f0 + k];
-					n[1][k] = attrib.normals[3 * f1 + k];
-					n[2][k] = attrib.normals[3 * f2 + k];
+					n[0][k] = attrib.normals[3 * idx0.normal_index + k];
+					n[1][k] = attrib.normals[3 * idx1.normal_index + k];
+					n[2][k] = attrib.normals[3 * idx2.normal_index + k];
 				}
 			} else {
-				// compute geometric normal
 				calcNormal(n[0], v[0], v[1], v[2]);
-				n[1][0] = n[0][0];
-				n[1][1] = n[0][1];
-				n[1][2] = n[0][2];
-				n[2][0] = n[0][0];
-				n[2][1] = n[0][1];
-				n[2][2] = n[0][2];
+				n[1][0] = n[0][0]; n[1][1] = n[0][1]; n[1][2] = n[0][2];
+				n[2][0] = n[0][0]; n[2][1] = n[0][1]; n[2][2] = n[0][2];
 			}
 
 			for (int k = 0; k < 3; k++) {
@@ -297,97 +251,58 @@ bool WavefrontSceneGraphFactory::addWavefront(const char* file_name, glm::mat4 m
 				vert.normal[2] = n[k][2];
 				vert.texcoord[0] = tc[k][0];
 				vert.texcoord[1] = tc[k][1];
-
-				// local object center mean calculation (stage 1)
-				geom_node->center[0] += vert.position[0];
-				geom_node->center[1] += vert.position[1];
-				geom_node->center[2] += vert.position[2];
-
 				vertices.push_back(vert);
 			}
 		}
 
-		if (vertices.size() == 0) {
-			// Ignore scene nodes that don't have geometry
-			LOGI(
-					"Warning, scene node %s does not containing geometry, ommiting.",
-					shapes[s].name.c_str()
-			);
+		if (vertices.empty()) {
+			delete geom_node;
 			continue;
 		}
 
 		geom_node->name = shapes[s].name;
-		double num_vertices = (double) vertices.size();
-		// 2nd stage of mean calculation
 
-		geom_node->center[0] = (float)(geom_node->center[0] / num_vertices);
-		geom_node->center[1] = (float)(geom_node->center[1] / num_vertices);
-		geom_node->center[2] = (float)(geom_node->center[2] / num_vertices);
-
-		// Now that the center is calculated, it is subtracted from the individual vertices.
-		for (std::vector<Vertex>::iterator it = vertices.begin(); it != vertices.end(); ++it) {
-			Vertex* vert = &*it;
-			for (int xyz = 0; xyz < 3; xyz++) {
-				vert->position[xyz] -= geom_node->center[xyz];
-			}
-		}
-
-		geom_node->radius = 0.f;
-		// Radius calculation
-
-		for (size_t i = 0; i < vertices.size(); i++) {
-			float x = vertices.at(i).position[0];
-			float y = vertices.at(i).position[1];
-			float z = vertices.at(i).position[2];
-			float nx = x - geom_node->center[0];
-			float ny = y - geom_node->center[1];
-			float nz = z - geom_node->center[2];
-			float sum_of_squares = nx * nx + ny * ny + nz * nz;
-			if (sum_of_squares > 0.f) {
-				float r2 = sqrtf(sum_of_squares);
-				if (r2 > geom_node->radius) {
-					geom_node->radius = r2;
-				}
-			}
-		}
-
-		if (geom_node->radius <= 0.f) {
-			geom_node->radius = 0.1f;
-		}
-
-		// Reduce duplicated vertices, see https://vulkan-tutorial.com/Loading_models
+		// Deduplicate vertices and build indexed geometry
 		std::unordered_map<Vertex, GLuint> unique_vertices;
-
-		for(std::vector<Vertex>::iterator vit = vertices.begin(); vit != vertices.end(); ++vit) {
-			if(unique_vertices.find(*vit) == unique_vertices.end()) {
-				GLuint vindex = (GLuint) unique_vertices.size();
-				unique_vertices.insert(std::make_pair(*vit, vindex));
-				geom_node->vertex_data.push_back(*vit);
+		for(const auto& vert : vertices) {
+			auto it = unique_vertices.find(vert);
+			if (it == unique_vertices.end()) {
+				GLuint vindex = (GLuint) geom_node->vertex_data.size();
+				unique_vertices.insert(std::make_pair(vert, vindex));
+				geom_node->vertex_data.push_back(vert);
+				geom_node->index_data.push_back(vindex);
+			} else {
+				geom_node->index_data.push_back(it->second);
 			}
-			geom_node->index_data.push_back(unique_vertices[*vit]);
 		}
 
-		total_duplicates_removed += (vertices.size() - unique_vertices.size());
+		// Compute exact Welzl minimal bounding sphere
+		geom_node->computeWelzlBoundingSphere();
 
-		// Free up some memory
-		unique_vertices.clear();
-		vertices.clear();
-
-		if (shapes[s].mesh.material_ids.size() > 0
-				&& shapes[s].mesh.material_ids.size() > s) {
-			size_t node_mat_id = shapes[s].mesh.material_ids[s] + initial_num_materials;
-			node_material_association[geom_node] = node_mat_id;
+		// Center the geometry around (0,0,0) and store the center offset
+		for (auto& vert : geom_node->vertex_data) {
+			for (int xyz = 0; xyz < 3; xyz++) {
+				vert.position[xyz] -= geom_node->center[xyz];
+			}
 		}
 
+		// Associate material: use shape material if valid, else default
+		size_t node_mat_id = initial_num_materials;
+		if (!shapes[s].mesh.material_ids.empty() && shapes[s].mesh.material_ids[0] >= 0) {
+			size_t m_id = (size_t) shapes[s].mesh.material_ids[0];
+			if (m_id < material_list.size()) {
+				node_mat_id = initial_num_materials + m_id;
+			}
+		}
+		node_material_association[geom_node] = node_mat_id;
 		geometry_nodes.push_back(geom_node);
 	}
 
-	if (geometry_nodes.size() == 0) {
+	if (geometry_nodes.empty()) {
 		LOGE("Error: No scene nodes defined in %s", file_name);
 		return false;
 	}
 
-	LOGI("removed %i duplicate vertices from %s", (int)total_duplicates_removed, file_name);
 	return true;
 }
 
@@ -396,25 +311,29 @@ Node* WavefrontSceneGraphFactory::build() {
 	assert(group);
 	group->name = std::string(name);
 
-	for (std::vector<MaterialNode*>::iterator it = materials.begin(); it != materials.end(); ++it) {
-		MaterialNode* wfm = *it;
+	if (materials.empty()) {
+		MaterialNode* fallback = new MaterialNode();
+		fallback->name = "default_material";
+		materials.push_back(fallback);
+	}
+
+	for (MaterialNode* wfm : materials) {
 		group->children.push_back(wfm);
 	}
 
-	for (std::vector<GeometryNode*>::iterator it = this->geometry_nodes.begin(); it != this->geometry_nodes.end(); ++it) {
-		GeometryNode* geom_node = *it;
-		size_t mat_id = node_material_association[geom_node];
-		std::string mat_name = materials.at(mat_id)->name;
-		MaterialNode* mat_node = (MaterialNode*) group->find(mat_name);
-		// mat_node should have been added in the previous loop
-		assert(mat_node);
+	for (GeometryNode* geom_node : this->geometry_nodes) {
+		size_t mat_id = 0;
+		auto it = node_material_association.find(geom_node);
+		if (it != node_material_association.end() && it->second < materials.size()) {
+			mat_id = it->second;
+		}
+		MaterialNode* mat_node = materials[mat_id];
+
 		TransformNode* trans_node = new TransformNode();
 		assert(trans_node);
 		trans_node->matrix = glm::translate(glm::mat4(1.0f),
-				glm::vec3(geom_node->center[0], geom_node->center[1],
-						geom_node->center[2]));
+				glm::vec3(geom_node->center[0], geom_node->center[1], geom_node->center[2]));
 		trans_node->name = geom_node->name;
-		// Rename geometry node
 		geom_node->name = trans_node->name + std::string("_Geometry");
 		trans_node->children.push_back(geom_node);
 		mat_node->children.push_back(trans_node);

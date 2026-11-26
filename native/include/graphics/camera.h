@@ -1,14 +1,16 @@
-// Copyright (C) 2017 Chris Liebert
+// Copyright (C) 2017-2026 Chris Liebert
 
 #ifndef _CAMERA_H_
 #define _CAMERA_H_
+
+#ifndef _USE_MATH_DEFINES
+#define _USE_MATH_DEFINES
+#endif
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/vec3.hpp>
-
-#include "graphics/gl_code.h"
 
 class Camera {
 public:
@@ -21,13 +23,20 @@ public:
 	glm::vec3 up;
 	double horizontal_angle;
 	double vertical_angle;
+	float fov_degrees;
+	float aspect_ratio;
+	float near_plane;
+	float far_plane;
 
-	void aim(double x, double y);
-	void moveForward(double amount);
-	void moveBackward(double amount);
-	void moveLeft(double amount);
-	void moveRight(double amount);
+	void aim(double dHeading, double dPitch);
+	void moveForward(double distance);
+	void moveBackward(double distance);
+	void moveLeft(double distance);
+	void moveRight(double distance);
+	void setFov(float fov_deg);
+	void setProjection(float fov_deg, float aspect, float near_p = 0.1f, float far_p = 1000.0f);
+	void updateProjection();
 	void update();
 };
 
-#endif
+#endif // _CAMERA_H_
