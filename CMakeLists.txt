@@ -138,20 +138,38 @@ else()
 endif()
 
 if(NOT ANDROID AND NOT EMSCRIPTEN AND NOT IOS AND IMGUI_DIR)
-    add_library(imgui STATIC
-        ${IMGUI_DIR}/imgui.cpp
-        ${IMGUI_DIR}/imgui_demo.cpp
-        ${IMGUI_DIR}/imgui_draw.cpp
-        ${IMGUI_DIR}/imgui_tables.cpp
-        ${IMGUI_DIR}/imgui_widgets.cpp
-        ${IMGUI_DIR}/backends/imgui_impl_glfw.cpp
-        ${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp
+    set(IMGUI_SOURCES
+        "${IMGUI_DIR}/imgui.cpp"
+        "${IMGUI_DIR}/imgui_demo.cpp"
+        "${IMGUI_DIR}/imgui_draw.cpp"
+        "${IMGUI_DIR}/imgui_tables.cpp"
+        "${IMGUI_DIR}/imgui_widgets.cpp"
+        "${IMGUI_DIR}/backends/imgui_impl_glfw.cpp"
+        "${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp"
     )
+    set(IMGUI_HAS_VULKAN FALSE)
+    if(Vulkan_FOUND AND EXISTS "${IMGUI_DIR}/backends/imgui_impl_vulkan.cpp")
+        list(APPEND IMGUI_SOURCES "${IMGUI_DIR}/backends/imgui_impl_vulkan.cpp")
+        set(IMGUI_HAS_VULKAN TRUE)
+    endif()
+
+    add_library(imgui STATIC ${IMGUI_SOURCES})
     target_include_directories(imgui SYSTEM PUBLIC
-        ${IMGUI_DIR}
-        ${IMGUI_DIR}/backends
+        "${IMGUI_DIR}"
+        "${IMGUI_DIR}/backends"
     )
     target_link_libraries(imgui PUBLIC glfw OpenGL::GL)
+    if(IMGUI_HAS_VULKAN)
+        if(Vulkan_INCLUDE_DIRS)
+            target_include_directories(imgui SYSTEM PUBLIC ${Vulkan_INCLUDE_DIRS})
+        endif()
+        if(TARGET Vulkan::Vulkan)
+            target_link_libraries(imgui PUBLIC Vulkan::Vulkan)
+        elseif(Vulkan_LIBRARIES)
+            target_link_libraries(imgui PUBLIC ${Vulkan_LIBRARIES})
+        endif()
+        target_compile_definitions(imgui PUBLIC DROIDGFXSIM_IMGUI_HAS_VULKAN=1)
+    endif()
     target_compile_features(imgui PUBLIC cxx_std_20)
     if(MSVC)
         target_compile_options(imgui PRIVATE /W3)

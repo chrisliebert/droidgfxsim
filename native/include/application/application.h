@@ -67,10 +67,13 @@ public:
 	bool cascade_mode_active;
 	float cascade_timer;
 	float cascade_interval;
+	float cascade_spawn_rate;
+	int max_debris_pool;
 	std::vector<PhysicsNode*> spawned_debris_nodes;
 	size_t debris_recycle_index;
 
 	void spawnDynamicDebris(float x, float y, float z, float radius = 0.8f, float mass = 2.0f);
+	void spawnSummitWave(int count = 20);
 	void update(float dt = 1.0f / 60.0f);
 
 	bool pickBody(float screen_x, float screen_y, int window_w, int window_h);

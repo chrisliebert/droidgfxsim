@@ -989,5 +989,52 @@ int runPhysicsTests() {
         ASSERT_TRUE(app.getFloorTunnelingCount() == 0);
     }
 
+    // =========================================================================
+    // Test 14: High-Throughput Cascade Spawn Rate & Dynamic Pool Stress Test
+    // =========================================================================
+    {
+        Application app;
+        ASSERT_TRUE(app.simulation != nullptr);
+        ASSERT_TRUE(app.simulation->dynamics_world != nullptr);
+
+        app.cascade_mode_active = true;
+        app.cascade_spawn_rate = 60.0f;
+        app.max_debris_pool = 120;
+
+        int tunnel_events = 0;
+        for (int frame = 0; frame < 150; ++frame) {
+            app.update(1.0f / 60.0f);
+            app.step();
+            tunnel_events += app.getFloorTunnelingCount();
+            ASSERT_TRUE(app.spawned_debris_nodes.size() <= 120);
+        }
+        ASSERT_TRUE(app.spawned_debris_nodes.size() >= 100);
+        ASSERT_TRUE(app.spawned_debris_nodes.size() <= 120);
+        ASSERT_TRUE(tunnel_events == 0);
+
+        // Dynamically shrink pool cap and continue stepping to verify safe recycling
+        app.max_debris_pool = 30;
+        for (int frame = 0; frame < 45; ++frame) {
+            app.update(1.0f / 60.0f);
+            app.step();
+            tunnel_events += app.getFloorTunnelingCount();
+            ASSERT_TRUE(app.debris_recycle_index < app.spawned_debris_nodes.size());
+        }
+        ASSERT_TRUE(tunnel_events == 0);
+
+        // Explicit summit wave burst under dynamic pool cap
+        const size_t pool_before_wave = app.spawned_debris_nodes.size();
+        app.spawnSummitWave(20);
+        ASSERT_TRUE(app.spawned_debris_nodes.size() == pool_before_wave);
+        ASSERT_TRUE(app.spawned_debris_nodes.size() <= 120);
+
+        for (int frame = 0; frame < 60; ++frame) {
+            app.step();
+            tunnel_events += app.getFloorTunnelingCount();
+        }
+        ASSERT_TRUE(tunnel_events == 0);
+        ASSERT_TRUE(app.getFloorTunnelingCount() == 0);
+    }
+
     return failures;
 }

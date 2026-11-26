@@ -13,6 +13,11 @@
 
 #if __has_include("graphics/vulkan_renderer.h")
 #include "graphics/vulkan_renderer.h"
+#include "graphics/scene_graph.h"
+#include "graphics/camera.h"
+#include "graphics/gl_code.h"
+#include <cstdlib>
+#include <map>
 #define HAS_VULKAN_RENDERER_HEADER 1
 #endif
 
@@ -188,6 +193,79 @@ int runVulkanTests() {
             std::cout << "  [PASS] VkInstance handle gracefully destroyed." << std::endl;
         }
     }
+
+    // -------------------------------------------------------------------------
+    // Test 4: VulkanRenderer Offscreen Scene Render & Texture Upload
+    // -------------------------------------------------------------------------
+#if defined(HAS_VULKAN_RENDERER_HEADER)
+    {
+        std::cout << "  --- Test 4: VulkanRenderer Offscreen Scene Render & Texture Upload ---" << std::endl;
+        VulkanRenderer renderer;
+        const bool initOk = renderer.init(nullptr);
+        ASSERT_TRUE(initOk);
+        if (initOk) {
+            auto* root = new scenegraph::Node();
+            root->name = "VulkanTestRoot";
+
+            auto* mat = new scenegraph::MaterialNode();
+            mat->name = "VulkanTestMat";
+            mat->diffuse_texture = "test_2x2_rgba";
+
+            auto* trans = new scenegraph::TransformNode();
+            trans->name = "VulkanTestTrans";
+            trans->matrix = glm::mat4(1.0f);
+
+            auto* geom = new scenegraph::GeometryNode();
+            geom->name = "VulkanTestTriangle";
+            geom->vertex_data = {
+                {{-0.5f, -0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f}},
+                {{ 0.5f, -0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}},
+                {{ 0.0f,  0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.5f, 1.0f}}
+            };
+            geom->index_data = {0, 1, 2};
+            geom->computeWelzlBoundingSphere();
+
+            trans->children.push_back(geom);
+            mat->children.push_back(trans);
+            root->children.push_back(mat);
+
+            Camera camera;
+            camera.position = glm::vec3(0.0f, 0.0f, 3.0f);
+            camera.projection_matrix = glm::perspective(glm::radians(45.0f), 1200.0f / 800.0f, 0.1f, 100.0f);
+            camera.update();
+
+            Image* texImg = new Image();
+            texImg->w = 2;
+            texImg->h = 2;
+            texImg->comp = 4;
+            texImg->data = static_cast<unsigned char*>(std::malloc(2u * 2u * 4u));
+            ASSERT_TRUE(texImg->data != nullptr);
+            if (texImg->data) {
+                const unsigned char pixels[16] = {
+                    255,   0,   0, 255,
+                      0, 255,   0, 255,
+                      0,   0, 255, 255,
+                    255, 255, 255, 255
+                };
+                std::memcpy(texImg->data, pixels, sizeof(pixels));
+            }
+            std::map<std::string, Image*> images;
+            images["test_2x2_rgba"] = texImg;
+
+            renderer.loadTextures(images);
+            ASSERT_TRUE(images.empty());
+
+            renderer.render(root, &camera);
+            renderer.clearMeshCache();
+            renderer.cleanup();
+            scenegraph::destroy(root);
+            std::cout << "  [PASS] VulkanRenderer offscreen scene render & texture upload verified." << std::endl;
+        } else {
+            renderer.cleanup();
+            std::cout << "  [NOTICE] Skipping Test 4 offscreen draw pass (no physical Vulkan device)." << std::endl;
+        }
+    }
+#endif
 
     return failures;
 #endif

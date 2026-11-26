@@ -4,10 +4,22 @@
 #define _IMGUI_OVERLAY_H_
 
 #include <glm/glm.hpp>
+#include <cstdint>
 #include <string>
 #include <vector>
 
 struct GLFWwindow;
+
+struct ImGuiVulkanInitInfo {
+    void* instance = nullptr;
+    void* physical_device = nullptr;
+    void* device = nullptr;
+    uint32_t queue_family = 0;
+    void* queue = nullptr;
+    void* render_pass = nullptr;
+    uint32_t min_image_count = 2;
+    uint32_t image_count = 2;
+};
 
 struct TelemetryData {
     int fps = 0;
@@ -40,7 +52,10 @@ struct SimulationControls {
 class ImGuiOverlay {
 private:
     bool initialized = false;
+    bool vulkan_backend = false;
     GLFWwindow* window_handle = nullptr;
+    void* vk_device = nullptr;
+    void* vk_descriptor_pool = nullptr;
     SimulationControls controls;
     TelemetryData telemetry;
 
@@ -52,12 +67,16 @@ private:
     float max_frame_time = 0.0f;
     float avg_frame_time = 0.0f;
 
+    void configureScaledFonts();
+    void applyGlassTheme();
+
 public:
     ImGuiOverlay();
     ~ImGuiOverlay();
 
     // Lifecycle
     bool init(GLFWwindow* window);
+    bool initVulkan(GLFWwindow* window, const ImGuiVulkanInitInfo& info);
     void shutdown();
 
     // Frame orchestration
@@ -65,6 +84,9 @@ public:
     void renderHUD(const TelemetryData& data);
     void renderHUD(int fps, float frame_time_ms, int rigid_body_count, int culled_count, int rendered_count, int draw_calls);
     void endFrame();
+    void renderVulkanDrawData(void* command_buffer);
+    void setVulkanMinImageCount(uint32_t min_image_count);
+    bool isVulkanBackend() const { return vulkan_backend; }
 
     // Input gating
     bool wantCaptureMouse() const;

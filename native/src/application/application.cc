@@ -60,7 +60,7 @@ void sampleHillsideSummitSpawn(const Simulation* sim, float radius,
 	rx = std::clamp(rx, -15.0f, 15.0f);
 	rz = -31.0f + unitRand() * 10.0f;     // [-31.0, -21.0]
 	const float terrain_h = sim ? sim->getTerrainHeightAt(rx, rz) : 14.0f;
-	ry = terrain_h + radius + 0.45f;
+	ry = terrain_h + radius + 0.45f + unitRand() * 0.9f;
 	vx_small = -0.6f + unitRand() * 1.2f;
 }
 
@@ -95,6 +95,8 @@ Application::Application() {
     cascade_mode_active = true;
     cascade_timer = 0.0f;
     cascade_interval = 0.35f;
+    cascade_spawn_rate = 3.0f;
+    max_debris_pool = 60;
     debris_recycle_index = 0;
     simulation = new Simulation();
 	assert(simulation);
@@ -317,16 +319,30 @@ void Application::resize(int width, int height) {
 	camera->update();
 }
 
+void Application::spawnSummitWave(int count) {
+	const int clamped_count = std::clamp(count, 1, 100);
+	for (int i = 0; i < clamped_count; ++i) {
+		float rradius = 0.55f + unitRand() * 0.3f;
+		float rx = 0.0f, ry = 0.0f, rz = 0.0f, vx_small = 0.0f;
+		sampleHillsideSummitSpawn(simulation, rradius, rx, ry, rz, vx_small);
+		spawnDynamicDebris(rx, ry, rz, rradius, 2.0f);
+	}
+}
+
 void Application::update(float dt) {
 	if (cascade_mode_active) {
+		const float rate = std::max(0.1f, cascade_spawn_rate);
+		const float interval = 1.0f / rate;
+		cascade_interval = interval;
 		cascade_timer += dt;
-		if (cascade_timer >= cascade_interval) {
-			cascade_timer = 0.0f;
-			float rradius = 0.55f + unitRand() * 0.3f;
-			float rx = 0.0f, ry = 0.0f, rz = 0.0f, vx_small = 0.0f;
-			sampleHillsideSummitSpawn(simulation, rradius, rx, ry, rz, vx_small);
-			float rmass = 2.0f;
-			spawnDynamicDebris(rx, ry, rz, rradius, rmass);
+		int spawned_this_step = 0;
+		while (cascade_timer >= interval && spawned_this_step < 12) {
+			cascade_timer -= interval;
+			spawnSummitWave(1);
+			spawned_this_step++;
+		}
+		if (cascade_timer >= interval) {
+			cascade_timer = std::fmod(cascade_timer, interval);
 		}
 	}
 }
@@ -336,10 +352,11 @@ void Application::spawnDynamicDebris(float x, float y, float z, float radius, fl
 		return;
 
 	// Recycle oldest debris if pool limit reached to maintain fixed memory & steady flow
-	const size_t max_debris = 36;
-	if (spawned_debris_nodes.size() >= max_debris) {
+	const size_t limit = static_cast<size_t>(std::max(1, max_debris_pool));
+	if (spawned_debris_nodes.size() >= limit) {
+		debris_recycle_index %= spawned_debris_nodes.size();
 		PhysicsNode* pn = spawned_debris_nodes[debris_recycle_index];
-		debris_recycle_index = (debris_recycle_index + 1) % max_debris;
+		debris_recycle_index = (debris_recycle_index + 1) % spawned_debris_nodes.size();
 		if (pn && pn->body) {
 			btTransform trans;
 			trans.setIdentity();

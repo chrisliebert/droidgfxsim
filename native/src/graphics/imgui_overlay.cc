@@ -9,12 +9,19 @@
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
+#if defined(DROIDGFXSIM_IMGUI_HAS_VULKAN)
+#include "imgui_impl_vulkan.h"
+#include <vulkan/vulkan.h>
+#endif
 #include <GLFW/glfw3.h>
 #endif
 
 ImGuiOverlay::ImGuiOverlay()
     : initialized(false),
+      vulkan_backend(false),
       window_handle(nullptr),
+      vk_device(nullptr),
+      vk_descriptor_pool(nullptr),
       history_index(0),
       history_count(0),
       min_frame_time(0.0f),
@@ -29,6 +36,58 @@ ImGuiOverlay::~ImGuiOverlay() {
     shutdown();
 }
 
+void ImGuiOverlay::configureScaledFonts() {
+#if !defined(__ANDROID__)
+    ImGuiIO& io = ImGui::GetIO();
+    io.Fonts->Clear();
+    ImFontConfig font_cfg;
+    font_cfg.SizePixels = 26.0f; // Crisp 2x scale over 13px ProggyClean
+    font_cfg.OversampleH = 2;
+    font_cfg.OversampleV = 2;
+    io.Fonts->AddFontDefault(&font_cfg);
+    io.FontGlobalScale = 1.0f;
+#endif
+}
+
+void ImGuiOverlay::applyGlassTheme() {
+#if !defined(__ANDROID__)
+    // Reset style before scaling so repeated initialization never compounds ScaleAllSizes
+    ImGuiStyle& style = ImGui::GetStyle();
+    style = ImGuiStyle();
+    ImGui::StyleColorsDark(&style);
+
+    // Portfolio aesthetic styling (high-contrast translucent dark-glass HUD)
+    style.WindowRounding = 6.0f;
+    style.FrameRounding = 4.0f;
+    style.GrabRounding = 4.0f;
+    style.ScrollbarRounding = 4.0f;
+    style.WindowBorderSize = 1.0f;
+    style.FrameBorderSize = 0.5f;
+
+    style.Colors[ImGuiCol_Text] = ImVec4(0.96f, 0.98f, 1.00f, 1.00f);
+    style.Colors[ImGuiCol_WindowBg] = ImVec4(0.05f, 0.07f, 0.11f, 0.36f);
+    style.Colors[ImGuiCol_ChildBg] = ImVec4(0.05f, 0.07f, 0.11f, 0.20f);
+    style.Colors[ImGuiCol_FrameBg] = ImVec4(0.14f, 0.19f, 0.27f, 0.44f);
+    style.Colors[ImGuiCol_FrameBgHovered] = ImVec4(0.22f, 0.30f, 0.42f, 0.58f);
+    style.Colors[ImGuiCol_FrameBgActive] = ImVec4(0.26f, 0.38f, 0.54f, 0.68f);
+    style.Colors[ImGuiCol_TitleBg] = ImVec4(0.05f, 0.08f, 0.12f, 0.54f);
+    style.Colors[ImGuiCol_TitleBgActive] = ImVec4(0.10f, 0.18f, 0.30f, 0.66f);
+    style.Colors[ImGuiCol_TitleBgCollapsed] = ImVec4(0.05f, 0.07f, 0.11f, 0.34f);
+    style.Colors[ImGuiCol_Header] = ImVec4(0.16f, 0.25f, 0.38f, 0.48f);
+    style.Colors[ImGuiCol_HeaderHovered] = ImVec4(0.24f, 0.36f, 0.52f, 0.62f);
+    style.Colors[ImGuiCol_HeaderActive] = ImVec4(0.28f, 0.42f, 0.60f, 0.72f);
+    style.Colors[ImGuiCol_Button] = ImVec4(0.18f, 0.28f, 0.42f, 0.54f);
+    style.Colors[ImGuiCol_ButtonHovered] = ImVec4(0.26f, 0.38f, 0.56f, 0.70f);
+    style.Colors[ImGuiCol_ButtonActive] = ImVec4(0.22f, 0.34f, 0.50f, 0.78f);
+    style.Colors[ImGuiCol_PopupBg] = ImVec4(0.06f, 0.09f, 0.13f, 0.84f);
+    style.Colors[ImGuiCol_Border] = ImVec4(0.68f, 0.78f, 0.92f, 0.42f);
+
+    style.ScaleAllSizes(2.0f);
+    style.WindowPadding = ImVec2(10.0f, 10.0f);
+    style.ItemSpacing = ImVec2(10.0f, 7.0f);
+#endif
+}
+
 bool ImGuiOverlay::init(GLFWwindow* window) {
 #if !defined(__ANDROID__)
     if (initialized) return true;
@@ -38,22 +97,15 @@ bool ImGuiOverlay::init(GLFWwindow* window) {
     }
 
     window_handle = window;
+    vulkan_backend = false;
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
-    ImGui::StyleColorsDark();
-
-    // Portfolio aesthetic styling
-    ImGuiStyle& style = ImGui::GetStyle();
-    style.WindowRounding = 6.0f;
-    style.FrameRounding = 4.0f;
-    style.GrabRounding = 4.0f;
-    style.ScrollbarRounding = 4.0f;
-    style.WindowBorderSize = 1.0f;
-    style.FrameBorderSize = 0.5f;
+    configureScaledFonts();
+    applyGlassTheme();
 
     ImGui_ImplGlfw_InitForOpenGL(window, true);
 
@@ -74,15 +126,118 @@ bool ImGuiOverlay::init(GLFWwindow* window) {
 #endif
 }
 
+bool ImGuiOverlay::initVulkan(GLFWwindow* window, const ImGuiVulkanInitInfo& info) {
+#if !defined(__ANDROID__) && defined(DROIDGFXSIM_IMGUI_HAS_VULKAN)
+    if (initialized) return true;
+    if (!window || !info.instance || !info.physical_device || !info.device || !info.queue || !info.render_pass) {
+        LOGE("ImGuiOverlay::initVulkan received invalid window or Vulkan handles");
+        return false;
+    }
+
+    VkDevice vkDev = static_cast<VkDevice>(info.device);
+    VkDescriptorPoolSize pool_sizes[] = {
+        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 64 }
+    };
+    VkDescriptorPoolCreateInfo pool_info{};
+    pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+    pool_info.maxSets = 64;
+    pool_info.poolSizeCount = 1;
+    pool_info.pPoolSizes = pool_sizes;
+
+    VkDescriptorPool desc_pool = VK_NULL_HANDLE;
+    VkResult res = vkCreateDescriptorPool(vkDev, &pool_info, nullptr, &desc_pool);
+    if (res != VK_SUCCESS || desc_pool == VK_NULL_HANDLE) {
+        LOGE("ImGuiOverlay::initVulkan failed to create VkDescriptorPool (VkResult %d)", res);
+        return false;
+    }
+
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+
+    configureScaledFonts();
+    applyGlassTheme();
+
+    if (!ImGui_ImplGlfw_InitForVulkan(window, true)) {
+        LOGE("ImGuiOverlay::initVulkan failed ImGui_ImplGlfw_InitForVulkan");
+        ImGui::DestroyContext();
+        vkDestroyDescriptorPool(vkDev, desc_pool, nullptr);
+        return false;
+    }
+
+    ImGui_ImplVulkan_InitInfo init_info{};
+    init_info.Instance = static_cast<VkInstance>(info.instance);
+    init_info.PhysicalDevice = static_cast<VkPhysicalDevice>(info.physical_device);
+    init_info.Device = vkDev;
+    init_info.QueueFamily = info.queue_family;
+    init_info.Queue = static_cast<VkQueue>(info.queue);
+    init_info.DescriptorPool = desc_pool;
+    init_info.RenderPass = static_cast<VkRenderPass>(info.render_pass);
+    init_info.MinImageCount = std::max(2u, info.min_image_count);
+    init_info.ImageCount = std::max(init_info.MinImageCount, info.image_count);
+    init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+
+    if (!ImGui_ImplVulkan_Init(&init_info)) {
+        LOGE("ImGuiOverlay::initVulkan failed ImGui_ImplVulkan_Init");
+        ImGui_ImplGlfw_Shutdown();
+        ImGui::DestroyContext();
+        vkDestroyDescriptorPool(vkDev, desc_pool, nullptr);
+        return false;
+    }
+
+    if (!ImGui_ImplVulkan_CreateFontsTexture()) {
+        LOGE("ImGuiOverlay::initVulkan failed ImGui_ImplVulkan_CreateFontsTexture");
+        ImGui_ImplVulkan_Shutdown();
+        ImGui_ImplGlfw_Shutdown();
+        ImGui::DestroyContext();
+        vkDestroyDescriptorPool(vkDev, desc_pool, nullptr);
+        return false;
+    }
+
+    window_handle = window;
+    vulkan_backend = true;
+    vk_device = info.device;
+    vk_descriptor_pool = static_cast<void*>(desc_pool);
+    initialized = true;
+    LOGI("ImGuiOverlay initialized successfully with GLFW and Vulkan backends");
+    return true;
+#else
+    (void)window;
+    (void)info;
+    return false;
+#endif
+}
+
 void ImGuiOverlay::shutdown() {
 #if !defined(__ANDROID__)
     if (!initialized) return;
 
+#if defined(DROIDGFXSIM_IMGUI_HAS_VULKAN)
+    if (vulkan_backend) {
+        VkDevice vkDev = static_cast<VkDevice>(vk_device);
+        if (vkDev != VK_NULL_HANDLE) {
+            vkDeviceWaitIdle(vkDev);
+        }
+        ImGui_ImplVulkan_Shutdown();
+        if (vkDev != VK_NULL_HANDLE && vk_descriptor_pool != nullptr) {
+            vkDestroyDescriptorPool(vkDev, static_cast<VkDescriptorPool>(vk_descriptor_pool), nullptr);
+        }
+        vk_descriptor_pool = nullptr;
+        vk_device = nullptr;
+    } else {
+        ImGui_ImplOpenGL3_Shutdown();
+    }
+#else
     ImGui_ImplOpenGL3_Shutdown();
+#endif
+
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
 
     initialized = false;
+    vulkan_backend = false;
     window_handle = nullptr;
     LOGI("ImGuiOverlay shutdown completed");
 #endif
@@ -92,7 +247,15 @@ void ImGuiOverlay::beginFrame() {
 #if !defined(__ANDROID__)
     if (!initialized) return;
 
+#if defined(DROIDGFXSIM_IMGUI_HAS_VULKAN)
+    if (vulkan_backend) {
+        ImGui_ImplVulkan_NewFrame();
+    } else {
+        ImGui_ImplOpenGL3_NewFrame();
+    }
+#else
     ImGui_ImplOpenGL3_NewFrame();
+#endif
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 #endif
@@ -134,29 +297,31 @@ void ImGuiOverlay::renderHUD(const TelemetryData& data) {
     }
     avg_frame_time = history_count > 0 ? (sum / static_cast<float>(history_count)) : 0.0f;
 
-    // HUD window configuration
-    ImGui::SetNextWindowPos(ImVec2(16.0f, 16.0f), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(360.0f, 540.0f), ImGuiCond_FirstUseEver);
+    // HUD window configuration: sleek compact 2x-DPI translucent overlay anchored top-left
+    ImGui::SetNextWindowPos(ImVec2(12.0f, 12.0f), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(500.0f, 0.0f), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSizeConstraints(ImVec2(495.0f, 0.0f), ImVec2(550.0f, 760.0f));
+    ImGui::SetNextWindowBgAlpha(0.36f);
 
-    if (ImGui::Begin("droidgfxsim Telemetry & Controls", nullptr, ImGuiWindowFlags_None)) {
+    if (ImGui::Begin("droidgfxsim Telemetry & Controls", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::PushItemWidth(210.0f);
+
         // Section 1: Telemetry Dashboard
         if (ImGui::CollapsingHeader("Telemetry & Profiling", ImGuiTreeNodeFlags_DefaultOpen)) {
             ImGui::TextColored(ImVec4(0.2f, 0.9f, 0.4f, 1.0f), "FPS: %d (%.2f ms)", telemetry.fps, telemetry.frame_time_ms);
 
             char overlay[64];
-            std::snprintf(overlay, sizeof(overlay), "avg: %.1fms (min: %.1f, max: %.1f)", avg_frame_time, min_frame_time, max_frame_time);
-            ImGui::PlotLines("Frame Time", frame_time_history, static_cast<int>(FRAME_HISTORY_SIZE),
-                             static_cast<int>(history_index), overlay, 0.0f, 40.0f, ImVec2(0, 65.0f));
+            std::snprintf(overlay, sizeof(overlay), "avg %.1fms (%.1f - %.1f)", avg_frame_time, min_frame_time, max_frame_time);
+            ImGui::PlotLines("##FrameTime", frame_time_history, static_cast<int>(FRAME_HISTORY_SIZE),
+                             static_cast<int>(history_index), overlay, 0.0f, 40.0f, ImVec2(-1.0f, 70.0f));
 
             ImGui::Separator();
-            ImGui::Text("Active Rigid Bodies: %d", telemetry.rigid_body_count);
-            ImGui::Text("Rendered Scene Nodes: %d", telemetry.rendered_count);
-            ImGui::Text("Culled Scene Nodes:   %d", telemetry.culled_count);
-            ImGui::Text("Batched Draw Calls:   %d", telemetry.draw_calls);
+            ImGui::Text("Bodies: %d | Drawn: %d", telemetry.rigid_body_count, telemetry.rendered_count);
+            ImGui::Text("Culled: %d | Calls: %d", telemetry.culled_count, telemetry.draw_calls);
         }
 
-        // Section 2: Physics Simulation Controls
-        if (ImGui::CollapsingHeader("Physics Simulation", ImGuiTreeNodeFlags_DefaultOpen)) {
+        // Section 2: Physics Simulation Controls (collapsed by default for compact 2x layout)
+        if (ImGui::CollapsingHeader("Physics Simulation")) {
             float g[3] = {controls.gravity.x, controls.gravity.y, controls.gravity.z};
             if (ImGui::SliderFloat3("Gravity (m/s²)", g, -30.0f, 30.0f, "%.1f")) {
                 controls.gravity = glm::vec3(g[0], g[1], g[2]);
@@ -188,8 +353,8 @@ void ImGuiOverlay::renderHUD(const TelemetryData& data) {
             }
         }
 
-        // Section 3: Lighting & Camera Controls
-        if (ImGui::CollapsingHeader("Lighting & Camera", ImGuiTreeNodeFlags_DefaultOpen)) {
+        // Section 3: Lighting & Camera Controls (collapsed by default)
+        if (ImGui::CollapsingHeader("Lighting & Camera")) {
             float lp[3] = {controls.light_pos.x, controls.light_pos.y, controls.light_pos.z};
             if (ImGui::SliderFloat3("Light Position", lp, -50.0f, 50.0f, "%.1f")) {
                 controls.light_pos = glm::vec3(lp[0], lp[1], lp[2]);
@@ -200,8 +365,8 @@ void ImGuiOverlay::renderHUD(const TelemetryData& data) {
             ImGui::SliderFloat("Camera Speed", &controls.camera_speed, 0.2f, 5.0f, "%.1fx");
         }
 
-        // Section 4: Bullet Debug Visualizer Toggles
-        if (ImGui::CollapsingHeader("Bullet Debug Visualizer", ImGuiTreeNodeFlags_DefaultOpen)) {
+        // Section 4: Bullet Debug Visualizer Toggles (collapsed by default)
+        if (ImGui::CollapsingHeader("Bullet Debug Visualizer")) {
             ImGui::Checkbox("Draw Wireframe Collision Hulls (F1)", &controls.debug_draw_wireframe);
             ImGui::Checkbox("Draw Bounding Boxes (AABB)", &controls.debug_draw_aabb);
             ImGui::Checkbox("Draw Contact Manifold Points", &controls.debug_draw_contact_points);
@@ -212,8 +377,12 @@ void ImGuiOverlay::renderHUD(const TelemetryData& data) {
             if (ImGui::Button("Atomic Hot-Reload Shaders (R)")) {
                 controls.hot_reload_requested = true;
             }
+            ImGui::PushTextWrapPos(0.0f);
             ImGui::TextDisabled("Compiles candidates and swaps atomically without crashes.");
+            ImGui::PopTextWrapPos();
         }
+
+        ImGui::PopItemWidth();
     }
     ImGui::End();
 #else
@@ -226,7 +395,31 @@ void ImGuiOverlay::endFrame() {
     if (!initialized) return;
 
     ImGui::Render();
-    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+    if (!vulkan_backend) {
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+    }
+#endif
+}
+
+void ImGuiOverlay::renderVulkanDrawData(void* command_buffer) {
+#if !defined(__ANDROID__) && defined(DROIDGFXSIM_IMGUI_HAS_VULKAN)
+    if (!initialized || !vulkan_backend || command_buffer == nullptr) return;
+    ImDrawData* dd = ImGui::GetDrawData();
+    if (dd && dd->Valid && dd->CmdListsCount > 0) {
+        ImGui_ImplVulkan_RenderDrawData(dd, static_cast<VkCommandBuffer>(command_buffer));
+    }
+#else
+    (void)command_buffer;
+#endif
+}
+
+void ImGuiOverlay::setVulkanMinImageCount(uint32_t min_image_count) {
+#if !defined(__ANDROID__) && defined(DROIDGFXSIM_IMGUI_HAS_VULKAN)
+    if (initialized && vulkan_backend) {
+        ImGui_ImplVulkan_SetMinImageCount(std::max(2u, min_image_count));
+    }
+#else
+    (void)min_image_count;
 #endif
 }
 
